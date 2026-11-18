@@ -13,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -73,7 +74,7 @@ fun RepoCard(
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.ic_star),
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.stars),
                         modifier = Modifier.size(16.dp)
                     )
                     Text(
@@ -83,7 +84,7 @@ fun RepoCard(
                     )
                     Icon(
                         painter = painterResource(R.drawable.ic_fork),
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.forks),
                         modifier = Modifier.size(16.dp)
                     )
                     Text(

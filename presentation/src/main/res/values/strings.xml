@@ -1,8 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="empty">No results 😓</string>
     <string name="retry">Retry</string>
     <string name="search">Search</string>
+    <string name="forks">Forks</string>
+    <string name="stars">Stars</string>
+    <string name="empty">No results\n😓</string>
+    <string name="end_of_list">No more results\n🏁</string>
+    <string name="error_append">Couldn\'t load more</string>
+    <string name="error_refresh">Couldn\'t load repos</string>
     <string name="search_label">Search repos</string>
     <string name="stars_m">%1$dM+ stars</string>
     <string name="stars_k">%1$dK+ stars</string>

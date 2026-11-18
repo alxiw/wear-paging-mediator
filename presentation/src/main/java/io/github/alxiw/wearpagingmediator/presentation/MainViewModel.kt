@@ -10,6 +10,7 @@ import androidx.paging.map
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.alxiw.wearpagingmediator.domain.GetReposFlowUseCase
 import io.github.alxiw.wearpagingmediator.presentation.Constants.DEFAULT_QUERY
+import io.github.alxiw.wearpagingmediator.presentation.model.StarBand
 import io.github.alxiw.wearpagingmediator.presentation.model.UiAction
 import io.github.alxiw.wearpagingmediator.presentation.model.UiModel
 import io.github.alxiw.wearpagingmediator.presentation.model.UiState
@@ -82,13 +83,11 @@ class MainViewModel @Inject constructor(
                 .map { UiModel.RepoItem(it) }
                 .insertSeparators { before, after ->
                     after ?: return@insertSeparators null
-                    val afterThreshold = thresholdFor(after.repo.stars) ?: return@insertSeparators null
-                    val beforeThreshold = before?.let { thresholdFor(it.repo.stars) }
-                    when {
-                        beforeThreshold == null -> UiModel.SeparatorItem(starsLabel(afterThreshold))
-                        beforeThreshold > afterThreshold -> UiModel.SeparatorItem(starsLabel(afterThreshold))
-                        else -> null
-                    }
+                    val band = StarBand.separatorAbove(
+                        before = before?.let { it.repo.stars },
+                        after = after.repo.stars
+                    ) ?: return@insertSeparators null
+                    UiModel.SeparatorItem(starsLabel(band))
                 }
         }
     }
@@ -100,16 +99,10 @@ class MainViewModel @Inject constructor(
         else -> UiText.StringResource(R.string.stars_zero)
     }
 
-    private fun thresholdFor(stars: Int): Int? = STAR_THRESHOLDS.firstOrNull { stars >= it }
-
     companion object {
         private const val KEY_LAST_SEARCH_QUERY = "last_search_query"
         private const val KEY_LAST_QUERY_SCROLLED = "last_query_scrolled"
         private const val K = 1_000
         private const val M = 1_000_000
-
-        private val STAR_THRESHOLDS = listOf(
-            1_000_000, 500_000, 100_000, 50_000, 10_000, 5_000, 1_000, 500, 100, 50, 10, 5, 1
-        )
     }
 }
