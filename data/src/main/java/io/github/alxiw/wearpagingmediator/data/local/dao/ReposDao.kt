@@ -5,6 +5,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Upsert
 import io.github.alxiw.wearpagingmediator.data.local.model.RepoEntity
 import io.github.alxiw.wearpagingmediator.data.local.model.RepoTopicCrossRef
 import io.github.alxiw.wearpagingmediator.data.local.model.SearchQueryResultEntity
@@ -13,8 +14,13 @@ import io.github.alxiw.wearpagingmediator.data.local.model.TopicEntity
 @Dao
 internal interface ReposDao {
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAll(repos: List<RepoEntity>)
+    /**
+     * Updates existing rows instead of deleting and re-inserting them: `repos` is shared by all
+     * search queries and `search_query_results` references it with `ON DELETE CASCADE`, so a
+     * replace would drop the repository from the cached results of every other query.
+     */
+    @Upsert
+    suspend fun upsertAll(repos: List<RepoEntity>)
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertTopics(topics: List<TopicEntity>)
@@ -24,6 +30,18 @@ internal interface ReposDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSearchResults(searchResults: List<SearchQueryResultEntity>)
+
+    @Query("SELECT COUNT(*) FROM search_query_results WHERE `query` = :query")
+    suspend fun countSearchResults(query: String): Int
+
+    @Query("SELECT COUNT(*) FROM repo_remote_keys WHERE `query` = :query")
+    suspend fun countRemoteKeys(query: String): Int
+
+    @Query("SELECT stars FROM repos WHERE id = :repoId")
+    suspend fun starsOf(repoId: Long): Int?
+
+    @Query("SELECT position FROM search_query_results WHERE `query` = :query ORDER BY position ASC")
+    suspend fun positionsFor(query: String): List<Int>
 
     @Query("""
         SELECT repos.* FROM repos 

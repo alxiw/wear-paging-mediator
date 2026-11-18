@@ -81,7 +81,7 @@ internal class ReposRemoteMediator(
                 RepoRemoteKeyEntity(repoId = it.id, query = query, prevKey = prevKey, nextKey = nextKey)
             }
             database.remoteKeysDao().insertAll(keys)
-            database.reposDao().insertAll(repos)
+            database.reposDao().upsertAll(repos)
 
             val startPosition = (page - 1) * state.config.pageSize
             val searchResults = repos.mapIndexed { index, repo ->
