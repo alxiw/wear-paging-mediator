@@ -21,7 +21,9 @@ data class RepoResponse(
     @Json(name = "forks_count")
     val forks: Int,
     @Json(name = "language")
-    val language: String?
+    val language: String?,
+    @Json(name = "topics")
+    val topics: List<String> = emptyList()
 )
 
 fun RepoResponse.toRepoEntity() = RepoEntity(

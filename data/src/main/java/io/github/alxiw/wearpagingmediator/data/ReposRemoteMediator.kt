@@ -9,6 +9,9 @@ import io.github.alxiw.wearpagingmediator.data.local.db.GitHubDatabase
 import io.github.alxiw.wearpagingmediator.data.remote.api.GitHubApi
 import io.github.alxiw.wearpagingmediator.data.local.model.RepoRemoteKeyEntity
 import io.github.alxiw.wearpagingmediator.data.local.model.RepoEntity
+import io.github.alxiw.wearpagingmediator.data.local.model.RepoTopicCrossRef
+import io.github.alxiw.wearpagingmediator.data.local.model.TopicEntity
+import io.github.alxiw.wearpagingmediator.data.remote.model.RepoResponse
 import io.github.alxiw.wearpagingmediator.data.remote.model.toRepoEntity
 
 @ExperimentalPagingApi
@@ -47,7 +50,7 @@ internal class ReposRemoteMediator(
             insertIntoDatabase(
                 page = page,
                 loadType = loadType,
-                repos = repos.items.map { it.toRepoEntity() },
+                repoResponses = repos.items,
                 endOfPaginationReached = endOfPaginationReached
             )
             MediatorResult.Success(endOfPaginationReached)
@@ -57,13 +60,16 @@ internal class ReposRemoteMediator(
     private suspend fun insertIntoDatabase(
         page: Int,
         loadType: LoadType,
-        repos: List<RepoEntity>,
+        repoResponses: List<RepoResponse>,
         endOfPaginationReached: Boolean
     ) {
+        val repos = repoResponses.map { it.toRepoEntity() }
         database.withTransaction {
             if (loadType == LoadType.REFRESH) {
                 database.remoteKeysDao().clearRemoteKeys()
                 database.reposDao().deleteAll()
+                database.reposDao().deleteAllTopics()
+                database.reposDao().deleteAllRepoTopics()
             }
             val prevKey = if (page == STARTING_PAGE_INDEX) null else page - 1
             val nextKey = if (endOfPaginationReached) null else page + 1
@@ -72,6 +78,14 @@ internal class ReposRemoteMediator(
             }
             database.remoteKeysDao().insertAll(keys)
             database.reposDao().insertAll(repos)
+
+            val topics = repoResponses.flatMap { it.topics }.distinct().map { TopicEntity(it) }
+            database.reposDao().insertTopics(topics)
+
+            val crossRefs = repoResponses.flatMap { response ->
+                response.topics.map { topic -> RepoTopicCrossRef(response.id, topic) }
+            }
+            database.reposDao().insertRepoTopics(crossRefs)
         }
     }
 
