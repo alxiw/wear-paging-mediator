@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="empty">No results 😓</string>
+    <string name="retry">Retry</string>
+    <string name="search">Search</string>
+    <string name="search_label">Search repos</string>
+</resources>
