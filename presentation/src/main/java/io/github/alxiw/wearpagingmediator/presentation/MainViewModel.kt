@@ -92,10 +92,10 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    private fun starsLabel(stars: Int): UiText = when {
-        stars >= M -> UiText.StringResource(R.string.stars_m, stars / M)
-        stars >= K -> UiText.StringResource(R.string.stars_k, stars / K)
-        stars > 0 -> UiText.StringResource(R.string.stars_n, stars)
+    private fun starsLabel(cap: Int): UiText = when {
+        cap >= M -> UiText.StringResource(R.string.stars_m, cap / M)
+        cap >= K -> UiText.StringResource(R.string.stars_k, cap / K)
+        cap > 0 -> UiText.StringResource(R.string.stars_n, cap)
         else -> UiText.StringResource(R.string.stars_zero)
     }
 
