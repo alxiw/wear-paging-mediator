@@ -89,7 +89,7 @@ fun MainScreen(
                     key = repos.itemKey {
                         when (it) {
                             is UiModel.RepoItem -> it.repo.id
-                            is UiModel.SeparatorItem -> it.description
+                            is UiModel.SeparatorItem -> it.description.stableKey
                         }
                     },
                     contentType = repos.itemContentType {

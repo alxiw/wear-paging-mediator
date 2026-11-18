@@ -4,4 +4,8 @@
     <string name="retry">Retry</string>
     <string name="search">Search</string>
     <string name="search_label">Search repos</string>
+    <string name="stars_m">%1$dM+ stars</string>
+    <string name="stars_k">%1$dK+ stars</string>
+    <string name="stars_n">%1$d+ stars</string>
+    <string name="stars_zero">0 stars</string>
 </resources>

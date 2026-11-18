@@ -13,6 +13,7 @@ import io.github.alxiw.wearpagingmediator.presentation.Constants.DEFAULT_QUERY
 import io.github.alxiw.wearpagingmediator.presentation.model.UiAction
 import io.github.alxiw.wearpagingmediator.presentation.model.UiModel
 import io.github.alxiw.wearpagingmediator.presentation.model.UiState
+import io.github.alxiw.wearpagingmediator.presentation.util.UiText
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
@@ -81,24 +82,34 @@ class MainViewModel @Inject constructor(
                 .map { UiModel.RepoItem(it) }
                 .insertSeparators { before, after ->
                     after ?: return@insertSeparators null
-                    val afterK = after.repo.stars / K
-                    val beforeK = before?.repo?.stars?.div(K)
+                    val afterThreshold = thresholdFor(after.repo.stars) ?: return@insertSeparators null
+                    val beforeThreshold = before?.let { thresholdFor(it.repo.stars) }
                     when {
-                        beforeK == null && afterK >= 1 -> UiModel.SeparatorItem(
-                            "${afterK}K+ stars"
-                        )
-                        beforeK != null && beforeK > afterK -> UiModel.SeparatorItem(
-                            if (afterK >= 1) "${afterK}K+ stars" else "<1K stars"
-                        )
+                        beforeThreshold == null -> UiModel.SeparatorItem(starsLabel(afterThreshold))
+                        beforeThreshold > afterThreshold -> UiModel.SeparatorItem(starsLabel(afterThreshold))
                         else -> null
                     }
                 }
         }
     }
 
+    private fun starsLabel(stars: Int): UiText = when {
+        stars >= M -> UiText.StringResource(R.string.stars_m, stars / M)
+        stars >= K -> UiText.StringResource(R.string.stars_k, stars / K)
+        stars > 0 -> UiText.StringResource(R.string.stars_n, stars)
+        else -> UiText.StringResource(R.string.stars_zero)
+    }
+
+    private fun thresholdFor(stars: Int): Int? = STAR_THRESHOLDS.firstOrNull { stars >= it }
+
     companion object {
         private const val KEY_LAST_SEARCH_QUERY = "last_search_query"
         private const val KEY_LAST_QUERY_SCROLLED = "last_query_scrolled"
         private const val K = 1_000
+        private const val M = 1_000_000
+
+        private val STAR_THRESHOLDS = listOf(
+            1_000_000, 500_000, 100_000, 50_000, 10_000, 5_000, 1_000, 500, 100, 50, 10, 5, 1
+        )
     }
 }

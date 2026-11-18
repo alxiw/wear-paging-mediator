@@ -20,9 +20,10 @@ import androidx.wear.compose.material3.AppScaffold
 import androidx.wear.compose.material3.Card
 import androidx.wear.compose.material3.ScreenScaffold
 import androidx.wear.tooling.preview.devices.WearDevices
+import io.github.alxiw.wearpagingmediator.presentation.util.UiText
 
 @Composable
-fun SeparatorCard(description: String) {
+fun SeparatorCard(description: UiText) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -33,7 +34,7 @@ fun SeparatorCard(description: String) {
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = description,
+                text = description.asString(),
                 color = MaterialTheme.colorScheme.secondaryContainer,
                 style = MaterialTheme.typography.labelLarge,
                 textAlign = TextAlign.Center,
@@ -55,7 +56,7 @@ fun SeparatorCardPreview() {
                     modifier = Modifier.fillMaxSize()
                 ) {
                     item { Spacer(modifier = Modifier.height(65.dp)) }
-                    item { SeparatorCard(description = "10K+ stars") }
+                    item { SeparatorCard(description = UiText.DynamicString("10K+ stars")) }
                 }
             }
         }
