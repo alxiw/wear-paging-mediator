@@ -40,6 +40,12 @@ internal class ReposRemoteMediator(
             }
         }
 
+        // Remote keys cached before the search result limit was respected can point past the last
+        // page GitHub serves, requesting it would fail with HTTP 422 instead of finishing the list.
+        if (isBeyondSearchResultLimit(page, state.config.pageSize)) {
+            return MediatorResult.Success(endOfPaginationReached = true)
+        }
+
         return runCatching {
             val loadSize = if (loadType == LoadType.REFRESH) state.config.initialLoadSize else state.config.pageSize
             val repos = api.searchRepos(
@@ -48,7 +54,10 @@ internal class ReposRemoteMediator(
                 pageSize = loadSize
             )
             val itemsLoaded = (page - 1) * state.config.pageSize + repos.items.size
-            val endOfPaginationReached = repos.items.isEmpty() || itemsLoaded >= repos.total
+            val nextPage = page + (loadSize / state.config.pageSize)
+            val endOfPaginationReached = repos.items.isEmpty() ||
+                itemsLoaded >= repos.total ||
+                isBeyondSearchResultLimit(nextPage, state.config.pageSize)
             insertIntoDatabase(
                 page = page,
                 loadSize = loadSize,
@@ -127,7 +136,16 @@ internal class ReposRemoteMediator(
         }
     }
 
+    /**
+     * GitHub search serves results only up to [MAX_SEARCH_RESULTS] offset and answers `HTTP 422`
+     * ("Only the first 1000 search results are available") for deeper pages, even though
+     * `total_count` of a query like `Android` is millions: pagination has to end there.
+     */
+    private fun isBeyondSearchResultLimit(page: Int, pageSize: Int): Boolean =
+        (page - 1) * pageSize >= MAX_SEARCH_RESULTS
+
     companion object {
         const val STARTING_PAGE_INDEX = 1
+        const val MAX_SEARCH_RESULTS = 1_000
     }
 }

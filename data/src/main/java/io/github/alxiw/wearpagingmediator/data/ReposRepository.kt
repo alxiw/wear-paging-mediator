@@ -23,10 +23,7 @@ internal class ReposRepository @Inject constructor(
     override fun getReposFlow(query: String): Flow<PagingData<Repo>> {
         val apiQuery = query.trim().replace(' ', '_')
         return Pager(
-            config = PagingConfig(
-                pageSize = NETWORK_PAGE_SIZE,
-                enablePlaceholders = false
-            ),
+            config = pagingConfig,
             remoteMediator = ReposRemoteMediator(
                 query = apiQuery,
                 api = api,
@@ -41,5 +38,17 @@ internal class ReposRepository @Inject constructor(
 
     companion object {
         const val NETWORK_PAGE_SIZE = 30
+
+        /**
+         * Bounds the window of pages kept in memory: everything is already persisted in Room, so
+         * pages dropped from the window are re-read on scroll back instead of being kept forever.
+         * The size covers the initial load (3 pages) plus a few appended ones, and it is bigger
+         * than the initial load so a dropped page can never break scrolling in both directions.
+         */
+        internal val pagingConfig = PagingConfig(
+            pageSize = NETWORK_PAGE_SIZE,
+            maxSize = NETWORK_PAGE_SIZE * 6,
+            enablePlaceholders = false
+        )
     }
 }
