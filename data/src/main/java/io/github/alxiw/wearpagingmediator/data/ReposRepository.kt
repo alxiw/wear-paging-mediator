@@ -1,13 +1,12 @@
 package io.github.alxiw.wearpagingmediator.data
 
-import android.util.Log
 import androidx.paging.ExperimentalPagingApi
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import androidx.paging.map
 import io.github.alxiw.wearpagingmediator.data.local.db.GitHubDatabase
-import io.github.alxiw.wearpagingmediator.data.local.model.toRepo
+import io.github.alxiw.wearpagingmediator.data.mapper.RepoEntityMapper
 import io.github.alxiw.wearpagingmediator.data.remote.api.GitHubApi
 import io.github.alxiw.wearpagingmediator.domain.Repository
 import io.github.alxiw.wearpagingmediator.domain.model.Repo
@@ -25,33 +24,22 @@ internal class ReposRepository @Inject constructor(
         val apiQuery = query.trim().replace(' ', '_')
         return Pager(
             config = PagingConfig(
-                pageSize = ReposRemoteMediator.NETWORK_PAGE_SIZE,
+                pageSize = NETWORK_PAGE_SIZE,
                 enablePlaceholders = false
             ),
-            remoteMediator = if (USE_CACHING) {
-                ReposRemoteMediator(
-                    query = apiQuery,
-                    api = api,
-                    database = database
-                )
-            } else null,
+            remoteMediator = ReposRemoteMediator(
+                query = apiQuery,
+                api = api,
+                database = database
+            ),
             pagingSourceFactory = {
-                if (USE_CACHING) {
-                    val dbQuery = query.trim()
-                    database.reposDao().getRepos("%$dbQuery%".replace(' ', '%'))
-                } else {
-                    ReposPagingSource(api, apiQuery)
-                }
+                // "%${query.trim()}%".replace(' ', '%') for searchAllRepos
+                database.reposDao().getReposForQuery(apiQuery)
             }
-        ).flow.map { pagingData ->
-            pagingData.map {
-                Log.d("HELLO", "REPO: $it")
-                it.toRepo()
-            }
-        }
+        ).flow.map { pagingData -> pagingData.map { RepoEntityMapper.toRepo(it) } }
     }
 
     companion object {
-        private const val USE_CACHING = true
+        const val NETWORK_PAGE_SIZE = 30
     }
 }

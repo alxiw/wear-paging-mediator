@@ -9,6 +9,7 @@ import io.github.alxiw.wearpagingmediator.data.local.dao.ReposDao
 import io.github.alxiw.wearpagingmediator.data.local.model.RepoRemoteKeyEntity
 import io.github.alxiw.wearpagingmediator.data.local.model.RepoEntity
 import io.github.alxiw.wearpagingmediator.data.local.model.RepoTopicCrossRef
+import io.github.alxiw.wearpagingmediator.data.local.model.SearchQueryResultEntity
 import io.github.alxiw.wearpagingmediator.data.local.model.TopicEntity
 
 @Database(
@@ -16,9 +17,10 @@ import io.github.alxiw.wearpagingmediator.data.local.model.TopicEntity
         RepoEntity::class,
         RepoRemoteKeyEntity::class,
         TopicEntity::class,
-        RepoTopicCrossRef::class
+        RepoTopicCrossRef::class,
+        SearchQueryResultEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 internal abstract class GitHubDatabase : RoomDatabase() {
@@ -34,6 +36,17 @@ internal abstract class GitHubDatabase : RoomDatabase() {
                 db.execSQL("CREATE TABLE IF NOT EXISTS `topics` (`topic` TEXT NOT NULL, PRIMARY KEY(`topic`))")
                 db.execSQL("CREATE TABLE IF NOT EXISTS `repo_topic_cross_ref` (`id` INTEGER NOT NULL, `topic` TEXT NOT NULL, PRIMARY KEY(`id`, `topic`))")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_repo_topic_cross_ref_topic` ON `repo_topic_cross_ref` (`topic`)")
+            }
+        }
+
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Remote keys now belong to a search query, old rows have no query to migrate to,
+                // so they are recreated empty and will be filled on the next refresh.
+                db.execSQL("DROP TABLE IF EXISTS `repo_remote_keys`")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `repo_remote_keys` (`repoId` INTEGER NOT NULL, `query` TEXT NOT NULL, `prevKey` INTEGER, `nextKey` INTEGER, PRIMARY KEY(`repoId`, `query`))")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `search_query_results` (`query` TEXT NOT NULL, `repoId` INTEGER NOT NULL, `position` INTEGER NOT NULL, PRIMARY KEY(`query`, `repoId`), FOREIGN KEY(`repoId`) REFERENCES `repos`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_search_query_results_repoId` ON `search_query_results` (`repoId`)")
             }
         }
     }

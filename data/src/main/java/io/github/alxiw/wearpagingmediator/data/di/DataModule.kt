@@ -63,7 +63,10 @@ object DataModule {
             GitHubDatabase::class.java,
             GitHubDatabase.DB_NAME
         )
-            .addMigrations(GitHubDatabase.MIGRATION_1_2)
+            .addMigrations(
+                GitHubDatabase.MIGRATION_1_2,
+                GitHubDatabase.MIGRATION_2_3
+            )
             .build()
     }
 }

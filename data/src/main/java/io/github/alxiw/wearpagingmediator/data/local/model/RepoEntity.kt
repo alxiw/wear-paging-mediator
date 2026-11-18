@@ -3,7 +3,6 @@ package io.github.alxiw.wearpagingmediator.data.local.model
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
-import io.github.alxiw.wearpagingmediator.domain.model.Repo
 
 @Entity(tableName = "repos")
 data class RepoEntity(
@@ -22,14 +21,4 @@ data class RepoEntity(
     val forks: Int,
     @ColumnInfo(name = "language")
     val language: String?
-)
-
-fun RepoEntity.toRepo() = Repo(
-    id = id,
-    name = name,
-    description = description,
-    url = url,
-    stars = stars,
-    forks = forks,
-    language = language
 )

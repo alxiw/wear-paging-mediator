@@ -2,7 +2,6 @@ package io.github.alxiw.wearpagingmediator.data.remote.model
 
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
-import io.github.alxiw.wearpagingmediator.data.local.model.RepoEntity
 
 @JsonClass(generateAdapter = true)
 data class RepoResponse(
@@ -24,14 +23,4 @@ data class RepoResponse(
     val language: String?,
     @Json(name = "topics")
     val topics: List<String> = emptyList()
-)
-
-fun RepoResponse.toRepoEntity() = RepoEntity(
-    id = id,
-    name = fullName,
-    description = description,
-    url = url,
-    stars = stars,
-    forks = forks,
-    language = language
 )

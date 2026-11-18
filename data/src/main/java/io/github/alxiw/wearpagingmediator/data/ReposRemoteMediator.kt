@@ -10,9 +10,10 @@ import io.github.alxiw.wearpagingmediator.data.remote.api.GitHubApi
 import io.github.alxiw.wearpagingmediator.data.local.model.RepoRemoteKeyEntity
 import io.github.alxiw.wearpagingmediator.data.local.model.RepoEntity
 import io.github.alxiw.wearpagingmediator.data.local.model.RepoTopicCrossRef
+import io.github.alxiw.wearpagingmediator.data.local.model.SearchQueryResultEntity
 import io.github.alxiw.wearpagingmediator.data.local.model.TopicEntity
+import io.github.alxiw.wearpagingmediator.data.mapper.RepoResponseMapper
 import io.github.alxiw.wearpagingmediator.data.remote.model.RepoResponse
-import io.github.alxiw.wearpagingmediator.data.remote.model.toRepoEntity
 
 @ExperimentalPagingApi
 internal class ReposRemoteMediator(
@@ -40,18 +41,21 @@ internal class ReposRemoteMediator(
         }
 
         return runCatching {
+            val loadSize = if (loadType == LoadType.REFRESH) state.config.initialLoadSize else state.config.pageSize
             val repos = api.searchRepos(
                 query = query,
                 page = page,
-                pageSize = state.config.pageSize
+                pageSize = loadSize
             )
             val itemsLoaded = (page - 1) * state.config.pageSize + repos.items.size
             val endOfPaginationReached = repos.items.isEmpty() || itemsLoaded >= repos.total
             insertIntoDatabase(
                 page = page,
+                loadSize = loadSize,
                 loadType = loadType,
                 repoResponses = repos.items,
-                endOfPaginationReached = endOfPaginationReached
+                endOfPaginationReached = endOfPaginationReached,
+                state = state
             )
             MediatorResult.Success(endOfPaginationReached)
         }.getOrElse { throwable -> MediatorResult.Error(throwable) }
@@ -59,25 +63,35 @@ internal class ReposRemoteMediator(
 
     private suspend fun insertIntoDatabase(
         page: Int,
+        loadSize: Int,
         loadType: LoadType,
         repoResponses: List<RepoResponse>,
-        endOfPaginationReached: Boolean
+        endOfPaginationReached: Boolean,
+        state: PagingState<Int, RepoEntity>
     ) {
-        val repos = repoResponses.map { it.toRepoEntity() }
+        val repos = repoResponses.map { RepoResponseMapper.toRepoEntity(it) }
         database.withTransaction {
             if (loadType == LoadType.REFRESH) {
-                database.remoteKeysDao().clearRemoteKeys()
-                database.reposDao().deleteAll()
-                database.reposDao().deleteAllTopics()
-                database.reposDao().deleteAllRepoTopics()
+                database.remoteKeysDao().clearRemoteKeys(query)
+                database.reposDao().deleteResultsForQuery(query)
             }
             val prevKey = if (page == STARTING_PAGE_INDEX) null else page - 1
-            val nextKey = if (endOfPaginationReached) null else page + 1
+            val nextKey = if (endOfPaginationReached) null else page + (loadSize / state.config.pageSize)
             val keys = repos.map {
-                RepoRemoteKeyEntity(repoId = it.id, prevKey = prevKey, nextKey = nextKey)
+                RepoRemoteKeyEntity(repoId = it.id, query = query, prevKey = prevKey, nextKey = nextKey)
             }
             database.remoteKeysDao().insertAll(keys)
             database.reposDao().insertAll(repos)
+
+            val startPosition = (page - 1) * state.config.pageSize
+            val searchResults = repos.mapIndexed { index, repo ->
+                SearchQueryResultEntity(
+                    query = query,
+                    repoId = repo.id,
+                    position = startPosition + index
+                )
+            }
+            database.reposDao().insertSearchResults(searchResults)
 
             val topics = repoResponses.flatMap { it.topics }.distinct().map { TopicEntity(it) }
             database.reposDao().insertTopics(topics)
@@ -93,28 +107,27 @@ internal class ReposRemoteMediator(
         return state.pages
             .lastOrNull { it.data.isNotEmpty() }
             ?.data?.lastOrNull()
-            ?.let { repo -> database.remoteKeysDao().remoteKeysRepoId(repo.id) }
+            ?.let { repo -> database.remoteKeysDao().remoteKeysRepoId(repo.id, query) }
     }
 
     private suspend fun getRemoteKeyForFirstItem(state: PagingState<Int, RepoEntity>): RepoRemoteKeyEntity? {
         return state.pages
             .firstOrNull { it.data.isNotEmpty() }
             ?.data?.firstOrNull()
-            ?.let { repo -> database.remoteKeysDao().remoteKeysRepoId(repo.id) }
+            ?.let { repo -> database.remoteKeysDao().remoteKeysRepoId(repo.id, query) }
     }
 
     private suspend fun getRemoteKeyClosestToCurrentPosition(
         state: PagingState<Int, RepoEntity>
     ): RepoRemoteKeyEntity? {
         return state.anchorPosition?.let { position ->
-            state.closestItemToPosition(position)?.id?.let {
-                repoId -> database.remoteKeysDao().remoteKeysRepoId(repoId)
+            state.closestItemToPosition(position)?.id?.let { repoId ->
+                database.remoteKeysDao().remoteKeysRepoId(repoId, query)
             }
         }
     }
 
     companion object {
         const val STARTING_PAGE_INDEX = 1
-        const val NETWORK_PAGE_SIZE = 30
     }
 }
