@@ -66,5 +66,13 @@ dependencies {
     testImplementation(libs.junit)
 
     // instrumented tests
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
     androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.espresso.core)
+    androidTestImplementation(project(":domain"))
+    androidTestImplementation(libs.androidx.paging.common)
+    androidTestImplementation(libs.coroutines.core)
 }
