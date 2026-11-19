@@ -29,7 +29,7 @@ fun SeparatorCard(description: UiText) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(52.dp)
+            .height(46.dp)
     ) {
         Box(
             modifier = Modifier.fillMaxSize(),

@@ -5,7 +5,7 @@
     <string name="forks">Forks</string>
     <string name="stars">Stars</string>
     <string name="empty">No results 😓</string>
-    <string name="end_of_list">The end 🏁</string>
+    <string name="end_of_list">🏁</string>
     <string name="error_append">Couldn\'t load more</string>
     <string name="error_refresh">Couldn\'t load repos</string>
     <string name="search_label">Search repos</string>

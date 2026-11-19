@@ -21,7 +21,7 @@ import io.github.alxiw.wearpagingmediator.domain.GetReposFlowUseCase
 import io.github.alxiw.wearpagingmediator.presentation.Constants.DEFAULT_QUERY
 import io.github.alxiw.wearpagingmediator.presentation.MainViewModel
 import io.github.alxiw.wearpagingmediator.presentation.R
-import io.github.alxiw.wearpagingmediator.presentation.model.UiAction
+import io.github.alxiw.wearpagingmediator.presentation.model.MainIntent
 import io.github.alxiw.wearpagingmediator.presentation.testing.BAND_CAPS
 import io.github.alxiw.wearpagingmediator.presentation.testing.FakeRepository
 import io.github.alxiw.wearpagingmediator.presentation.testing.FakeSearchResults
@@ -228,6 +228,9 @@ class MainScreenTest {
 
         rule.onNodeWithText(FIRST_REPO.name).performClick()
 
+        // opening the result is an effect of the ViewModel: it is performed once the screen
+        // collects it, right after the click
+        rule.awaitCondition { context.startedIntents.size == 1 }
         val intent = context.startedIntents.single()
         assertEquals(Intent.ACTION_VIEW, intent.action)
         assertEquals(FIRST_REPO.url, intent.data?.toString())
@@ -324,7 +327,7 @@ class MainScreenTest {
         // the list is scrolled away from its head
         scrollTo(THIRD_REPO.name)
 
-        rule.runOnUiThread { viewModel.accept(UiAction.Search("kotlin")) }
+        rule.runOnUiThread { viewModel.onIntent(MainIntent.Search("kotlin")) }
         rule.awaitCondition { viewModel.state.value.lastQueryScrolled == "kotlin" }
 
         rule.onNodeWithText("kotlin").assertIsDisplayed()
@@ -335,7 +338,7 @@ class MainScreenTest {
         showScreen()
         scrollTo(FIRST_REPO.name)
 
-        rule.runOnUiThread { viewModel.accept(UiAction.Search("kotlin")) }
+        rule.runOnUiThread { viewModel.onIntent(MainIntent.Search("kotlin")) }
         rule.awaitCondition { viewModel.state.value.query == "kotlin" }
         rule.waitForIdle()
 
@@ -411,7 +414,7 @@ class MainScreenTest {
 
     /** Makes the screen search for the query the way the search panel does. */
     private fun search(query: String) {
-        rule.runOnUiThread { viewModel.accept(UiAction.Search(query)) }
+        rule.runOnUiThread { viewModel.onIntent(MainIntent.Search(query)) }
         rule.awaitCondition { viewModel.state.value.query == query }
         rule.waitForIdle()
     }

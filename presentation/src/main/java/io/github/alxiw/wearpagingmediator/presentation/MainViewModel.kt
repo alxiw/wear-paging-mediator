@@ -10,26 +10,34 @@ import androidx.paging.map
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.alxiw.wearpagingmediator.domain.GetReposFlowUseCase
 import io.github.alxiw.wearpagingmediator.presentation.Constants.DEFAULT_QUERY
+import io.github.alxiw.wearpagingmediator.presentation.model.MainEffect
+import io.github.alxiw.wearpagingmediator.presentation.model.MainIntent
+import io.github.alxiw.wearpagingmediator.presentation.model.MainReducer
+import io.github.alxiw.wearpagingmediator.presentation.model.MainState
 import io.github.alxiw.wearpagingmediator.presentation.model.StarBand
-import io.github.alxiw.wearpagingmediator.presentation.model.UiAction
-import io.github.alxiw.wearpagingmediator.presentation.model.UiModel
-import io.github.alxiw.wearpagingmediator.presentation.model.UiState
+import io.github.alxiw.wearpagingmediator.presentation.model.ListModel
 import io.github.alxiw.wearpagingmediator.presentation.util.CountFormatter
 import io.github.alxiw.wearpagingmediator.presentation.util.UiText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.receiveAsFlow
 import javax.inject.Inject
 
+/**
+ * The state holder of the screen, written in MVI style: the UI sends [MainIntent]s, the reducer
+ * turns them into a new [MainState] and one-off [MainEffect]s, and the results of the current
+ * query are a separate stream because their load states are owned by the list.
+ */
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class MainViewModel @Inject constructor(
@@ -37,15 +45,16 @@ class MainViewModel @Inject constructor(
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    private val searches = savedStateHandle
-        .getStateFlow(KEY_LAST_SEARCH_QUERY, DEFAULT_QUERY)
-        .map { UiAction.Search(query = it) }
-        .distinctUntilChanged()
+    /** The state of the screen, the only thing the UI renders. */
+    private val _state = MutableStateFlow(restoredState())
+    val state: StateFlow<MainState> = _state.asStateFlow()
 
-    private val scrollsToTop = savedStateHandle
-        .getStateFlow(KEY_LAST_QUERY_SCROLLED, DEFAULT_QUERY)
-        .map { UiAction.Scroll(query = it) }
-        .distinctUntilChanged()
+    /**
+     * The actions the UI has to perform once. The channel buffers an effect until the screen
+     * starts collecting it, so an intent that is handled before the screen subscribes is not lost.
+     */
+    private val effectChannel = Channel<MainEffect>(Channel.BUFFERED)
+    val effects: Flow<MainEffect> = effectChannel.receiveAsFlow()
 
     /**
      * The results of every visited query are kept: coming back to a previous query (back resets the
@@ -57,37 +66,43 @@ class MainViewModel @Inject constructor(
     private val pagingDataCache =
         LinkedHashMap<String, CachedQuery>(MAX_CACHED_QUERIES, 0.75f, true)
 
-    val pagingDataFlow: Flow<PagingData<UiModel>> = searches
-        .flatMapLatest { search -> pagingDataFor(search.query) }
+    val pagingDataFlow: Flow<PagingData<ListModel>> = state
+        .map { it.query }
+        .distinctUntilChanged()
+        .flatMapLatest(::pagingDataFor)
         .cachedIn(viewModelScope)
 
-    // combines two flows and computes scrollToTopPending flag that tells the UI to scroll
-    // the list back to the top: the query has changed and the list has not been scrolled
-    // to the top for it yet
-    val state: StateFlow<UiState> = combine(searches, scrollsToTop, ::Pair)
-        .map { (search, scroll) ->
-            UiState(
-                query = search.query,
-                lastQueryScrolled = scroll.query,
-                // if the search query matches the scroll query, the top is already shown
-                scrollToTopPending = search.query != scroll.query
-            )
-        }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5000),
-            initialValue = UiState(
-                query = savedStateHandle[KEY_LAST_SEARCH_QUERY] ?: DEFAULT_QUERY,
-                lastQueryScrolled = savedStateHandle[KEY_LAST_QUERY_SCROLLED] ?: DEFAULT_QUERY,
-                // on start, the list position is restored, so there is nothing to scroll
-                scrollToTopPending = false
-            )
-        )
+    /** The only entry point of the screen: every event of the UI is turned into an intent. */
+    fun onIntent(intent: MainIntent) {
+        val previous = _state.value
+        val reduction = MainReducer.reduce(previous, intent)
+        _state.value = reduction.state
+        persist(previous, reduction.state)
+        reduction.effects.forEach { effectChannel.trySend(it) }
+    }
 
-    fun accept(action: UiAction) {
-        when (action) {
-            is UiAction.Search -> savedStateHandle[KEY_LAST_SEARCH_QUERY] = action.query
-            is UiAction.Scroll -> savedStateHandle[KEY_LAST_QUERY_SCROLLED] = action.query
+    /**
+     * The query survives process death: both the query of the results and the query the list was
+     * scrolled to the top for are restored, so the results come back where they were left.
+     */
+    private fun restoredState(): MainState {
+        val query = savedStateHandle[KEY_LAST_SEARCH_QUERY] ?: DEFAULT_QUERY
+        val lastQueryScrolled = savedStateHandle[KEY_LAST_QUERY_SCROLLED] ?: DEFAULT_QUERY
+        return MainState(
+            query = query,
+            lastQueryScrolled = lastQueryScrolled,
+            // on start, the list position is restored, so there is nothing to scroll
+            scrollToTopPending = false
+        )
+    }
+
+    /** Saves only what changed, so the handle is not rewritten on every scroll. */
+    private fun persist(previous: MainState, current: MainState) {
+        if (current.query != previous.query) {
+            savedStateHandle[KEY_LAST_SEARCH_QUERY] = current.query
+        }
+        if (current.lastQueryScrolled != previous.lastQueryScrolled) {
+            savedStateHandle[KEY_LAST_QUERY_SCROLLED] = current.lastQueryScrolled
         }
     }
 
@@ -96,7 +111,7 @@ class MainViewModel @Inject constructor(
      * own: its window stays ready while the query is cached and is released as soon as the cache
      * drops the query.
      */
-    private fun pagingDataFor(queryString: String): Flow<PagingData<UiModel>> {
+    private fun pagingDataFor(queryString: String): Flow<PagingData<ListModel>> {
         pagingDataCache[queryString]?.let { return it.data }
 
         // a failure of one query must not cancel the scope of the ViewModel
@@ -114,17 +129,17 @@ class MainViewModel @Inject constructor(
         return data
     }
 
-    private fun searchRepo(queryString: String): Flow<PagingData<UiModel>> {
+    private fun searchRepo(queryString: String): Flow<PagingData<ListModel>> {
         return getReposFlow(queryString).map { pagingData ->
             pagingData
-                .map { UiModel.RepoItem(it) }
+                .map { ListModel.RepoItem(it) }
                 .insertSeparators { before, after ->
                     after ?: return@insertSeparators null
                     val band = StarBand.separatorAbove(
                         before = before?.let { it.repo.stars },
                         after = after.repo.stars
                     ) ?: return@insertSeparators null
-                    UiModel.SeparatorItem(starsLabel(band))
+                    ListModel.SeparatorItem(starsLabel(band))
                 }
         }
     }
@@ -137,7 +152,7 @@ class MainViewModel @Inject constructor(
     /** The results of one visited query, kept until the cache drops the query. */
     private class CachedQuery(
         val job: Job,
-        val data: Flow<PagingData<UiModel>>
+        val data: Flow<PagingData<ListModel>>
     )
 
     companion object {

@@ -37,7 +37,7 @@ fun ErrorCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .height(64.dp)
+            .height(65.dp)
     ) {
         Text(
             text = message,

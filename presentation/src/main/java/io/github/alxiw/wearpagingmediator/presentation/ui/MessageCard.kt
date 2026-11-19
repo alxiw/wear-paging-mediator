@@ -34,7 +34,7 @@ fun MessageCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .height(52.dp)
+            .height(46.dp)
     ) {
         Text(
             text = text,
