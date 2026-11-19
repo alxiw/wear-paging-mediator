@@ -39,7 +39,7 @@ class MainViewModel @Inject constructor(
         .map { UiAction.Search(query = it) }
         .distinctUntilChanged()
 
-    private val queriesScrolled = savedStateHandle
+    private val scrollsToTop = savedStateHandle
         .getStateFlow(KEY_LAST_QUERY_SCROLLED, DEFAULT_QUERY)
         .map { UiAction.Scroll(query = it) }
         .distinctUntilChanged()
@@ -48,16 +48,16 @@ class MainViewModel @Inject constructor(
         .flatMapLatest { searchRepo(it.query) }
         .cachedIn(viewModelScope)
 
-    // combines two flows and computes hasNotScrolledForCurrentSearch flag
-    // that indicates whether the user hasn't scrolled the list since the latest search;
-    // used by the UI to scroll the list back to the top on a new query
-    val state: StateFlow<UiState> = combine(searches, queriesScrolled, ::Pair)
+    // combines two flows and computes scrollToTopPending flag that tells the UI to scroll
+    // the list back to the top: the query has changed and the list has not been scrolled
+    // to the top for it yet
+    val state: StateFlow<UiState> = combine(searches, scrollsToTop, ::Pair)
         .map { (search, scroll) ->
             UiState(
                 query = search.query,
                 lastQueryScrolled = scroll.query,
-                // if the search query matches the scroll query, the user has scrolled
-                hasNotScrolledForCurrentSearch = search.query != scroll.query
+                // if the search query matches the scroll query, the top is already shown
+                scrollToTopPending = search.query != scroll.query
             )
         }
         .stateIn(
@@ -66,8 +66,8 @@ class MainViewModel @Inject constructor(
             initialValue = UiState(
                 query = savedStateHandle[KEY_LAST_SEARCH_QUERY] ?: DEFAULT_QUERY,
                 lastQueryScrolled = savedStateHandle[KEY_LAST_QUERY_SCROLLED] ?: DEFAULT_QUERY,
-                // on start, we usually don't want to force scroll
-                hasNotScrolledForCurrentSearch = false
+                // on start, the list position is restored, so there is nothing to scroll
+                scrollToTopPending = false
             )
         )
 

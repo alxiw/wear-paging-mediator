@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -50,8 +51,21 @@ fun MainScreen(
     val uiState by viewModel.state.collectAsState()
     val currentQuery = uiState.query
 
-    BackHandler(enabled = currentQuery.isNotEmpty()) {
+    // Back resets a custom search back to the default query. On the default query there is
+    // nothing to reset, so leave the event to the system and let it finish the activity.
+    BackHandler(enabled = currentQuery != DEFAULT_QUERY) {
         viewModel.accept(UiAction.Search(DEFAULT_QUERY))
+    }
+
+    // A new query (including the reset done by back) always starts the results from the top.
+    // The query is read before the suspending scroll, so the scroll is reported for the query
+    // it was actually made for.
+    LaunchedEffect(uiState.query, uiState.scrollToTopPending) {
+        if (uiState.scrollToTopPending) {
+            val query = uiState.query
+            listState.scrollToItem(0)
+            viewModel.accept(UiAction.Scroll(query))
+        }
     }
 
     val launcher = rememberLauncherForActivityResult(WearSearchContract()) { query ->
