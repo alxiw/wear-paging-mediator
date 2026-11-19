@@ -14,6 +14,7 @@ import io.github.alxiw.wearpagingmediator.presentation.model.StarBand
 import io.github.alxiw.wearpagingmediator.presentation.model.UiAction
 import io.github.alxiw.wearpagingmediator.presentation.model.UiModel
 import io.github.alxiw.wearpagingmediator.presentation.model.UiState
+import io.github.alxiw.wearpagingmediator.presentation.util.CountFormatter
 import io.github.alxiw.wearpagingmediator.presentation.util.UiText
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -93,16 +94,12 @@ class MainViewModel @Inject constructor(
     }
 
     private fun starsLabel(cap: Int): UiText = when {
-        cap >= M -> UiText.StringResource(R.string.stars_m, cap / M)
-        cap >= K -> UiText.StringResource(R.string.stars_k, cap / K)
-        cap > 0 -> UiText.StringResource(R.string.stars_n, cap)
+        cap > 0 -> UiText.StringResource(R.string.stars_label, CountFormatter.format(cap))
         else -> UiText.StringResource(R.string.stars_zero)
     }
 
     companion object {
         private const val KEY_LAST_SEARCH_QUERY = "last_search_query"
         private const val KEY_LAST_QUERY_SCROLLED = "last_query_scrolled"
-        private const val K = 1_000
-        private const val M = 1_000_000
     }
 }

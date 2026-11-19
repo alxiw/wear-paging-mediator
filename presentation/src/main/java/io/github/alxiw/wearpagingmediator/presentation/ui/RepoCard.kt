@@ -28,6 +28,7 @@ import androidx.wear.compose.material3.Text
 import androidx.wear.tooling.preview.devices.WearDevices
 import io.github.alxiw.wearpagingmediator.domain.model.Repo
 import io.github.alxiw.wearpagingmediator.presentation.R
+import io.github.alxiw.wearpagingmediator.presentation.util.CountFormatter
 
 @Composable
 fun RepoCard(
@@ -78,7 +79,7 @@ fun RepoCard(
                         modifier = Modifier.size(16.dp)
                     )
                     Text(
-                        text = "${repo.stars}",
+                        text = CountFormatter.format(repo.stars),
                         modifier = Modifier.padding(start = 4.dp, end = 4.dp),
                         style = MaterialTheme.typography.labelSmall,
                     )
@@ -88,7 +89,7 @@ fun RepoCard(
                         modifier = Modifier.size(16.dp)
                     )
                     Text(
-                        text = "${repo.forks}",
+                        text = CountFormatter.format(repo.forks),
                         modifier = Modifier.padding(start = 4.dp),
                         style = MaterialTheme.typography.labelSmall,
                     )
