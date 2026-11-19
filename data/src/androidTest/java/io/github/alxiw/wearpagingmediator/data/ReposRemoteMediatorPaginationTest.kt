@@ -37,7 +37,8 @@ import org.junit.runner.RunWith
  *
  * The window of pages kept in memory is bounded as well ([ReposRepository.pagingConfig] has a
  * finite `maxSize`), so pages can be dropped: when the remote key of the last item is gone the
- * mediator must not request anything.
+ * mediator must not request anything. The initial load is smaller than that window, so the first
+ * page is shown while the rest of the window is still loading.
  */
 @OptIn(ExperimentalPagingApi::class)
 @RunWith(AndroidJUnit4::class)
@@ -138,6 +139,30 @@ class ReposRemoteMediatorPaginationTest {
             config.maxSize >= config.initialLoadSize
         )
         assertFalse(config.enablePlaceholders)
+    }
+
+    /**
+     * The first page of a query is shown while the rest of the window is still loading, so the
+     * initial load is smaller than the default one, and the prefetch distance stays below a page so
+     * that restoring a scroll position does not append in the background.
+     */
+    @Test
+    fun theFirstLoadIsSmallerThanTheWindow() {
+        val config = ReposRepository.pagingConfig
+
+        assertEquals(
+            "the first request must not load the whole window, it is shown before the next pages arrive",
+            ReposRepository.NETWORK_PAGE_SIZE * 2,
+            config.initialLoadSize
+        )
+        assertTrue(
+            "the window has to hold the initial load twice, otherwise its pages are dropped at once",
+            config.maxSize >= config.initialLoadSize * 2
+        )
+        assertTrue(
+            "restoring a scroll position must not append, so the prefetch stays below one page",
+            config.prefetchDistance < config.pageSize
+        )
     }
 
     private fun pagingState() = PagingState<Int, RepoEntity>(

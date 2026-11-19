@@ -4,11 +4,11 @@
     <string name="search">Search</string>
     <string name="forks">Forks</string>
     <string name="stars">Stars</string>
-    <string name="empty">No results\n😓</string>
-    <string name="end_of_list">No more results\n🏁</string>
+    <string name="empty">No results 😓</string>
+    <string name="end_of_list">The end 🏁</string>
     <string name="error_append">Couldn\'t load more</string>
     <string name="error_refresh">Couldn\'t load repos</string>
     <string name="search_label">Search repos</string>
-    <string name="stars_label">≤ %1$s stars</string>
+    <string name="stars_label">%1$s stars</string>
     <string name="stars_zero">0 stars</string>
 </resources>

@@ -16,7 +16,10 @@ import io.github.alxiw.wearpagingmediator.presentation.model.UiModel
 import io.github.alxiw.wearpagingmediator.presentation.model.UiState
 import io.github.alxiw.wearpagingmediator.presentation.util.CountFormatter
 import io.github.alxiw.wearpagingmediator.presentation.util.UiText
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -44,8 +47,18 @@ class MainViewModel @Inject constructor(
         .map { UiAction.Scroll(query = it) }
         .distinctUntilChanged()
 
+    /**
+     * The results of every visited query are kept: coming back to a previous query (back resets the
+     * search to the default one) shows them from the same window instead of starting a new Pager
+     * and a new refresh. Only [MAX_CACHED_QUERIES] queries are kept, the least recently used one is
+     * dropped together with its window, while the window of a single query is bounded by
+     * `maxSize` of the paging config.
+     */
+    private val pagingDataCache =
+        LinkedHashMap<String, CachedQuery>(MAX_CACHED_QUERIES, 0.75f, true)
+
     val pagingDataFlow: Flow<PagingData<UiModel>> = searches
-        .flatMapLatest { searchRepo(it.query) }
+        .flatMapLatest { search -> pagingDataFor(search.query) }
         .cachedIn(viewModelScope)
 
     // combines two flows and computes scrollToTopPending flag that tells the UI to scroll
@@ -78,6 +91,29 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    /**
+     * `cachedIn` never stops collecting the Pager on its own, so every query gets a scope of its
+     * own: its window stays ready while the query is cached and is released as soon as the cache
+     * drops the query.
+     */
+    private fun pagingDataFor(queryString: String): Flow<PagingData<UiModel>> {
+        pagingDataCache[queryString]?.let { return it.data }
+
+        // a failure of one query must not cancel the scope of the ViewModel
+        val job = SupervisorJob(viewModelScope.coroutineContext[Job])
+        val data = searchRepo(queryString)
+            .cachedIn(CoroutineScope(viewModelScope.coroutineContext + job))
+        pagingDataCache[queryString] = CachedQuery(job = job, data = data)
+
+        // the cache is read in the order of access: the first entry is the least recently used one
+        while (pagingDataCache.size > MAX_CACHED_QUERIES) {
+            val eldest = pagingDataCache.entries.first()
+            pagingDataCache.remove(eldest.key)
+            eldest.value.job.cancel()
+        }
+        return data
+    }
+
     private fun searchRepo(queryString: String): Flow<PagingData<UiModel>> {
         return getReposFlow(queryString).map { pagingData ->
             pagingData
@@ -98,8 +134,17 @@ class MainViewModel @Inject constructor(
         else -> UiText.StringResource(R.string.stars_zero)
     }
 
+    /** The results of one visited query, kept until the cache drops the query. */
+    private class CachedQuery(
+        val job: Job,
+        val data: Flow<PagingData<UiModel>>
+    )
+
     companion object {
         private const val KEY_LAST_SEARCH_QUERY = "last_search_query"
         private const val KEY_LAST_QUERY_SCROLLED = "last_query_scrolled"
+
+        /** How many visited queries keep their results ready to be shown again. */
+        private const val MAX_CACHED_QUERIES = 3
     }
 }

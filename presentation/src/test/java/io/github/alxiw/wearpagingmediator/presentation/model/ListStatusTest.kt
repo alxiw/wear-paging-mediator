@@ -7,11 +7,11 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 /**
- * Guards what the list shows in place of and after the results, see [ListStatus].
+ * Guards what the list shows next to the results, see [ListStatus].
  *
- * The screen must never swap the whole content (search button included) for a spinner: a query
- * switch, a failure and an empty search all keep the header in place and report the state next to
- * the items instead.
+ * The screen must never swap the whole content (search button included) for a spinner, and the
+ * results must look the same whether they come from the cache or from the network: only states the
+ * user has to react to are reported, and they are reported after the last item.
  */
 class ListStatusTest {
 
@@ -31,19 +31,38 @@ class ListStatusTest {
     }
 
     @Test
-    fun cachedResultsAreNotReplacedByASpinner() {
+    fun cachedResultsAreNotMarkedWhileTheyAreRefreshed() {
+        // a background refresh is not reported at all: the list has to look exactly like the one
+        // that was just loaded from the network
         assertNull(ListStatus.notice(LoadState.Loading, INCOMPLETE, itemCount = PAGE_SIZE))
+        assertNull(ListStatus.footer(LoadState.Loading, INCOMPLETE, itemCount = PAGE_SIZE))
     }
 
     @Test
-    fun failedRefreshIsReportedWithRetry() {
+    fun failedRefreshIsReportedAfterTheLastItem() {
         val error = LoadState.Error(IOException("offline"))
 
-        assertEquals(ListNotice.RefreshError, ListStatus.notice(error, INCOMPLETE, itemCount = 0))
-        // cached results of the same query stay visible below the error
+        // nothing is reported above the results, the cached ones stay exactly as they were
+        assertNull(ListStatus.notice(error, INCOMPLETE, itemCount = PAGE_SIZE))
         assertEquals(
-            ListNotice.RefreshError,
-            ListStatus.notice(error, INCOMPLETE, itemCount = PAGE_SIZE)
+            ListFooter.RefreshError,
+            ListStatus.footer(error, INCOMPLETE, itemCount = PAGE_SIZE)
+        )
+        // a search without cached results reports the failure in the same place
+        assertNull(ListStatus.notice(error, INCOMPLETE, itemCount = 0))
+        assertEquals(
+            ListFooter.RefreshError,
+            ListStatus.footer(error, INCOMPLETE, itemCount = 0)
+        )
+    }
+
+    @Test
+    fun failedRefreshHidesTheEndOfTheList() {
+        val error = LoadState.Error(IOException("offline"))
+
+        assertEquals(
+            ListFooter.RefreshError,
+            ListStatus.footer(error, COMPLETE, itemCount = PAGE_SIZE)
         )
     }
 

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -20,6 +21,7 @@ import androidx.wear.compose.material3.AppScaffold
 import androidx.wear.compose.material3.Card
 import androidx.wear.compose.material3.ScreenScaffold
 import androidx.wear.tooling.preview.devices.WearDevices
+import io.github.alxiw.wearpagingmediator.presentation.R
 import io.github.alxiw.wearpagingmediator.presentation.util.UiText
 
 @Composable
@@ -56,7 +58,7 @@ fun SeparatorCardPreview() {
                     modifier = Modifier.fillMaxSize()
                 ) {
                     item { Spacer(modifier = Modifier.height(65.dp)) }
-                    item { SeparatorCard(description = UiText.DynamicString("10K+ stars")) }
+                    item { SeparatorCard(description = UiText.DynamicString(stringResource(R.string.stars_label, 100))) }
                 }
             }
         }

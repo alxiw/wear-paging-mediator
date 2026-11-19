@@ -1,5 +1,6 @@
 package io.github.alxiw.wearpagingmediator.data
 
+import android.util.Log
 import androidx.paging.ExperimentalPagingApi
 import androidx.paging.LoadType
 import androidx.paging.PagingState
@@ -15,6 +16,12 @@ import io.github.alxiw.wearpagingmediator.data.local.model.TopicEntity
 import io.github.alxiw.wearpagingmediator.data.mapper.RepoResponseMapper
 import io.github.alxiw.wearpagingmediator.data.remote.model.RepoResponse
 
+/**
+ * Keeps the cached results of [query] in sync with GitHub: the rows cached by a previous load are
+ * shown by the Room PagingSource as soon as the screen opens, while [load] refreshes them from the
+ * network in the background. Cached and freshly loaded results look the same, so the source of a
+ * page is logged when GitHub was asked.
+ */
 @ExperimentalPagingApi
 internal class ReposRemoteMediator(
     private val query: String,
@@ -38,6 +45,10 @@ internal class ReposRemoteMediator(
                 val nextKey = remoteKeys?.nextKey ?: return MediatorResult.Success(remoteKeys != null)
                 nextKey
             }
+        }
+
+        if (loadType == LoadType.REFRESH) {
+            Log.d("HELLO", "$query: page $page is loaded from GitHub")
         }
 
         // Remote keys cached before the search result limit was respected can point past the last

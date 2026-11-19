@@ -34,7 +34,11 @@ fun ErrorCard(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Card(modifier = modifier.fillMaxWidth()) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(64.dp)
+    ) {
         Text(
             text = message,
             modifier = Modifier.fillMaxWidth(),
@@ -44,7 +48,6 @@ fun ErrorCard(
             maxLines = 2,
             overflow = TextOverflow.Ellipsis
         )
-        Spacer(modifier = Modifier.height(4.dp))
         Icon(
             modifier = Modifier
                 .align(Alignment.CenterHorizontally)
@@ -64,8 +67,8 @@ fun ErrorCardPreview() {
                 TransformingLazyColumn(
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    item { Spacer(modifier = Modifier.height(65.dp)) }
-                    item { ErrorCard(message = "Couldn't load repos", onRetry = {}) }
+                    item { Spacer(modifier = Modifier.height(60.dp)) }
+                    item { ErrorCard(message = stringResource(R.string.error_refresh), onRetry = {}) }
                 }
             }
         }

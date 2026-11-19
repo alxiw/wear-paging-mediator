@@ -8,8 +8,10 @@ import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.wear.compose.foundation.lazy.TransformingLazyColumn
@@ -19,6 +21,7 @@ import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.ScreenScaffold
 import androidx.wear.compose.material3.Text
 import androidx.wear.tooling.preview.devices.WearDevices
+import io.github.alxiw.wearpagingmediator.presentation.R
 
 /**
  * A short message shown instead of the results: nothing found or the end of the list.
@@ -28,7 +31,11 @@ fun MessageCard(
     text: String,
     modifier: Modifier = Modifier
 ) {
-    Card(modifier = modifier.fillMaxWidth()) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(52.dp)
+    ) {
         Text(
             text = text,
             modifier = Modifier
@@ -38,7 +45,8 @@ fun MessageCard(
             style = MaterialTheme.typography.labelLarge,
             textAlign = TextAlign.Center,
             fontWeight = FontWeight.Bold,
-            maxLines = 2
+            overflow = TextOverflow.Ellipsis,
+            maxLines = 1
         )
     }
 }
@@ -53,7 +61,7 @@ fun MessageCardPreview() {
                     modifier = Modifier.fillMaxSize()
                 ) {
                     item { Spacer(modifier = Modifier.height(65.dp)) }
-                    item { MessageCard(text = "No results\n 😓") }
+                    item { MessageCard(text = stringResource(R.string.end_of_list)) }
                 }
             }
         }

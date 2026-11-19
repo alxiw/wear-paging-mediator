@@ -9,20 +9,18 @@ import android.view.inputmethod.EditorInfo
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContract
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.paging.LoadState
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemContentType
@@ -36,10 +34,19 @@ import androidx.wear.input.RemoteInputIntentHelper
 import androidx.wear.input.wearableExtender
 import io.github.alxiw.wearpagingmediator.presentation.Constants.DEFAULT_QUERY
 import io.github.alxiw.wearpagingmediator.presentation.MainViewModel
+import io.github.alxiw.wearpagingmediator.presentation.R
+import io.github.alxiw.wearpagingmediator.presentation.model.ListFooter
+import io.github.alxiw.wearpagingmediator.presentation.model.ListNotice
+import io.github.alxiw.wearpagingmediator.presentation.model.ListStatus
 import io.github.alxiw.wearpagingmediator.presentation.model.UiAction
 import io.github.alxiw.wearpagingmediator.presentation.model.UiModel
 import kotlin.text.ifEmpty
 
+/**
+ * The results of the query stay on screen in every load state and look the same whether they come
+ * from the cache or from the network: a load state is only reported next to the items ([ListStatus]),
+ * so the list is never replaced by a spinner and the cached results of a query are shown right away.
+ */
 @Composable
 fun MainScreen(
     viewModel: MainViewModel = hiltViewModel()
@@ -68,22 +75,29 @@ fun MainScreen(
         }
     }
 
+    // The same query is not a new search: the paging flow ignores it, so only the network part is
+    // repeated and the cached results stay on screen while they are refreshed.
     val launcher = rememberLauncherForActivityResult(WearSearchContract()) { query ->
         Log.d("HELLO", "QUERY: $query")
-        query?.trim()?.takeIf { it.isNotEmpty() }?.let { viewModel.accept(UiAction.Search(it)) }
+        val newQuery = query?.trim()?.takeIf { it.isNotEmpty() }
+        when (newQuery) {
+            null -> Unit
+            currentQuery -> repos.refresh()
+            else -> viewModel.accept(UiAction.Search(newQuery))
+        }
     }
+
+    // What is reported instead of the results (there are none yet) and right after the last item.
+    val loadState = repos.loadState
+    val notice = ListStatus.notice(loadState.refresh, loadState.append, repos.itemCount)
+    val footer = ListStatus.footer(loadState.refresh, loadState.append, repos.itemCount)
+
+    val searchLabel = stringResource(R.string.search_label)
 
     AppScaffold {
         ScreenScaffold(
             scrollState = listState,
         ) { contentPadding ->
-            if (repos.loadState.refresh is LoadState.Loading) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
-                return@ScreenScaffold
-            }
-
             TransformingLazyColumn(
                 state = listState,
                 contentPadding = contentPadding,
@@ -93,8 +107,21 @@ fun MainScreen(
                 item {
                     SearchButton(
                         query = uiState.query.ifEmpty { DEFAULT_QUERY },
-                        onClick = { launcher.launch("Search repos") }
+                        onClick = { launcher.launch(searchLabel) }
                     )
+                }
+
+                // the query has nothing to show yet: the head of the list is never taken by a
+                // state of the load, a refresh of the results that are already shown is not
+                // reported here at all
+                when (notice) {
+                    ListNotice.Loading -> item {
+                        CircularProgressIndicator(modifier = Modifier.padding(16.dp))
+                    }
+                    ListNotice.Empty -> item {
+                        MessageCard(text = stringResource(R.string.empty))
+                    }
+                    null -> Unit
                 }
 
                 // repos items
@@ -127,11 +154,27 @@ fun MainScreen(
                     }
                 }
 
-                // loading item
-                if (repos.loadState.append is LoadState.Loading) {
-                    item {
+                // load state below the loaded results, a failed refresh included
+                when (footer) {
+                    ListFooter.RefreshError -> item {
+                        ErrorCard(
+                            message = stringResource(R.string.error_refresh),
+                            onRetry = repos::retry
+                        )
+                    }
+                    ListFooter.Loading -> item {
                         CircularProgressIndicator(modifier = Modifier.padding(16.dp))
                     }
+                    ListFooter.AppendError -> item {
+                        ErrorCard(
+                            message = stringResource(R.string.error_append),
+                            onRetry = repos::retry
+                        )
+                    }
+                    ListFooter.EndOfList -> item {
+                        MessageCard(text = stringResource(R.string.end_of_list))
+                    }
+                    null -> Unit
                 }
             }
         }

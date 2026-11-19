@@ -15,6 +15,8 @@ A Wear OS app for searching GitHub repositories, powered by Paging 3 and built w
 - Offline-first — users retain access to previously loaded results when offline
 - UI — TransformingLazyColumn with paging items, separators grouped by star count, and load state footer
 
+The Remote Mediator refreshes the query in the background while the Room PagingSource emits the cached results right away, so the screen opens on the cache instead of the network.
+
 ## Screenshots
 
 <img src="img/sample.png" alt="drawing" width="180"/>
