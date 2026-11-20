@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -29,12 +30,15 @@ import androidx.wear.tooling.preview.devices.WearDevices
 import io.github.alxiw.wearpagingmediator.domain.model.Repo
 import io.github.alxiw.wearpagingmediator.presentation.R
 import io.github.alxiw.wearpagingmediator.presentation.util.CountFormatter
+import io.github.alxiw.wearpagingmediator.presentation.util.TextShortener
 
 @Composable
 fun RepoCard(
     repo: Repo,
     onClick: () -> Unit
 ) {
+    val description = remember(repo.description) { TextShortener.shorten(repo.description) }
+
     Card(
         onClick = onClick,
     ) {
@@ -51,7 +55,7 @@ fun RepoCard(
                 style = MaterialTheme.typography.titleMedium
             )
             Text(
-                text = repo.description ?: "",
+                text = description,
                 style = MaterialTheme.typography.bodyMedium,
                 maxLines = 5,
                 overflow = TextOverflow.Ellipsis

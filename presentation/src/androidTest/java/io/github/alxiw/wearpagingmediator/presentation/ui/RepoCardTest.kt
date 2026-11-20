@@ -14,6 +14,7 @@ import io.github.alxiw.wearpagingmediator.presentation.testing.FIRST_REPO
 import io.github.alxiw.wearpagingmediator.presentation.testing.label
 import io.github.alxiw.wearpagingmediator.presentation.testing.repo
 import io.github.alxiw.wearpagingmediator.presentation.testing.setWearContent
+import io.github.alxiw.wearpagingmediator.presentation.util.TextShortener
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -77,5 +78,25 @@ class RepoCardTest {
         rule.onNodeWithText("bare-repo").assertIsDisplayed()
         rule.onNodeWithText("90").assertIsDisplayed()
         rule.onNodeWithText("12").assertIsDisplayed()
+    }
+
+    /**
+     * GitHub does not bound a description: a result of the `android` search carries 55700
+     * characters, and a Text lays such a text out in full even when it shows only a few lines of
+     * it, which froze the app for seconds while scrolling.
+     */
+    @Test
+    fun descriptionGitHubDoesNotBoundIsShownOnlyUpToTheLimitOfTheCard() {
+        val unbound = "Book list of the collection ".repeat(2_000) // 54000 characters
+        val spammedRepo = repo(id = 8, name = "some-many-books", description = unbound)
+
+        rule.setWearContent {
+            RepoCard(repo = spammedRepo, onClick = {})
+        }
+
+        rule.onNodeWithText("some-many-books").assertIsDisplayed()
+        rule.onNodeWithText(TextShortener.shorten(unbound)).assertIsDisplayed()
+        // the whole paragraph never reaches the Text of the card, it would be laid out in full
+        rule.onNodeWithText(unbound).assertDoesNotExist()
     }
 }
