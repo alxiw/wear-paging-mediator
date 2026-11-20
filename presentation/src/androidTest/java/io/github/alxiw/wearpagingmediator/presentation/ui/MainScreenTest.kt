@@ -18,6 +18,7 @@ import androidx.paging.PagingSource
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.wear.compose.material3.MaterialTheme
 import io.github.alxiw.wearpagingmediator.domain.GetReposFlowUseCase
+import io.github.alxiw.wearpagingmediator.domain.model.SearchQuery
 import io.github.alxiw.wearpagingmediator.presentation.Constants.DEFAULT_QUERY
 import io.github.alxiw.wearpagingmediator.presentation.MainViewModel
 import io.github.alxiw.wearpagingmediator.presentation.R
@@ -65,7 +66,7 @@ class MainScreenTest {
     fun defaultQueryIsShownOnTheSearchButton() {
         showScreen()
 
-        rule.onNodeWithText(DEFAULT_QUERY).assertIsDisplayed()
+        rule.onNodeWithText(DEFAULT_QUERY.value).assertIsDisplayed()
         rule.awaitCondition { repository.queries == listOf(DEFAULT_QUERY) }
     }
 
@@ -180,12 +181,12 @@ class MainScreenTest {
             }
         }
 
-        showScreen(search = FakeSearchResults(reply = DEFAULT_QUERY), repository = repository)
+        showScreen(search = FakeSearchResults(reply = DEFAULT_QUERY.value), repository = repository)
         scrollTo(FIRST_REPO.name)
 
         offline = true
-        scrollTo(DEFAULT_QUERY)
-        rule.onNodeWithText(DEFAULT_QUERY).performClick()
+        scrollTo(DEFAULT_QUERY.value)
+        rule.onNodeWithText(DEFAULT_QUERY.value).performClick()
 
         rule.awaitCondition { repository.loads.size == 2 }
         rule.waitForIdle()
@@ -245,7 +246,7 @@ class MainScreenTest {
         val search = FakeSearchResults(reply = "kotlin")
 
         showScreen(search = search)
-        rule.onNodeWithText(DEFAULT_QUERY).performClick()
+        rule.onNodeWithText(DEFAULT_QUERY.value).performClick()
 
         assertEquals(label(R.string.search_label), search.inputs.single())
     }
@@ -258,9 +259,9 @@ class MainScreenTest {
         }
 
         showScreen(search = FakeSearchResults(reply = "kotlin"), repository = repository)
-        rule.onNodeWithText(DEFAULT_QUERY).performClick()
+        rule.onNodeWithText(DEFAULT_QUERY.value).performClick()
 
-        rule.awaitCondition { repository.queries == listOf(DEFAULT_QUERY, "kotlin") }
+        rule.awaitCondition { repository.queries == listOf(DEFAULT_QUERY, query("kotlin")) }
         scrollTo("kotlin")
         scrollTo(kotlinRepo.name)
 
@@ -272,11 +273,11 @@ class MainScreenTest {
     fun sameQueryRefreshesTheResultsInsteadOfSearchingAgain() {
         val repository = FakeRepository()
 
-        showScreen(search = FakeSearchResults(reply = DEFAULT_QUERY), repository = repository)
+        showScreen(search = FakeSearchResults(reply = DEFAULT_QUERY.value), repository = repository)
         scrollTo(FIRST_REPO.name)
-        scrollTo(DEFAULT_QUERY)
+        scrollTo(DEFAULT_QUERY.value)
 
-        rule.onNodeWithText(DEFAULT_QUERY).performClick()
+        rule.onNodeWithText(DEFAULT_QUERY.value).performClick()
 
         rule.awaitCondition { repository.loads.size == 2 }
         assertEquals(listOf(DEFAULT_QUERY), repository.queries)
@@ -291,9 +292,9 @@ class MainScreenTest {
 
         showScreen(search = FakeSearchResults(reply = "   "), repository = repository)
         scrollTo(FIRST_REPO.name)
-        scrollTo(DEFAULT_QUERY)
+        scrollTo(DEFAULT_QUERY.value)
 
-        rule.onNodeWithText(DEFAULT_QUERY).performClick()
+        rule.onNodeWithText(DEFAULT_QUERY.value).performClick()
         rule.waitForIdle()
 
         assertEquals(listOf(DEFAULT_QUERY), repository.queries)
@@ -307,9 +308,9 @@ class MainScreenTest {
         // the default reply of the search is a cancelled one, like a panel the user closed
         showScreen(repository = repository)
         scrollTo(FIRST_REPO.name)
-        scrollTo(DEFAULT_QUERY)
+        scrollTo(DEFAULT_QUERY.value)
 
-        rule.onNodeWithText(DEFAULT_QUERY).performClick()
+        rule.onNodeWithText(DEFAULT_QUERY.value).performClick()
         rule.waitForIdle()
 
         assertEquals(listOf(DEFAULT_QUERY), repository.queries)
@@ -327,8 +328,8 @@ class MainScreenTest {
         // the list is scrolled away from its head
         scrollTo(THIRD_REPO.name)
 
-        rule.runOnUiThread { viewModel.onIntent(MainIntent.Search("kotlin")) }
-        rule.awaitCondition { viewModel.state.value.lastQueryScrolled == "kotlin" }
+        rule.runOnUiThread { viewModel.onIntent(MainIntent.Search(query("kotlin"))) }
+        rule.awaitCondition { viewModel.state.value.lastQueryScrolled == query("kotlin") }
 
         rule.onNodeWithText("kotlin").assertIsDisplayed()
     }
@@ -338,16 +339,16 @@ class MainScreenTest {
         showScreen()
         scrollTo(FIRST_REPO.name)
 
-        rule.runOnUiThread { viewModel.onIntent(MainIntent.Search("kotlin")) }
-        rule.awaitCondition { viewModel.state.value.query == "kotlin" }
+        rule.runOnUiThread { viewModel.onIntent(MainIntent.Search(query("kotlin"))) }
+        rule.awaitCondition { viewModel.state.value.query == query("kotlin") }
         rule.waitForIdle()
 
         rule.runOnUiThread { rule.activity.onBackPressedDispatcher.onBackPressed() }
         rule.awaitCondition { viewModel.state.value.lastQueryScrolled == DEFAULT_QUERY }
 
-        rule.onNodeWithText(DEFAULT_QUERY).assertIsDisplayed()
+        rule.onNodeWithText(DEFAULT_QUERY.value).assertIsDisplayed()
         // the default query is shown from the cache, it is not asked for again
-        assertEquals(listOf(DEFAULT_QUERY, "kotlin"), repository.queries)
+        assertEquals(listOf(DEFAULT_QUERY, query("kotlin")), repository.queries)
     }
 
     @Test
@@ -359,7 +360,7 @@ class MainScreenTest {
         search("java")
         search("kotlin")
 
-        assertEquals(1, repository.queries.count { it == "kotlin" })
+        assertEquals(1, repository.queries.count { it == query("kotlin") })
     }
 
     @Test
@@ -371,7 +372,7 @@ class MainScreenTest {
         search("kotlin")
 
         // the cache keeps the last visited queries only, the default one and kotlin were dropped
-        assertEquals(2, repository.queries.count { it == "kotlin" })
+        assertEquals(2, repository.queries.count { it == query("kotlin") })
     }
 
     // endregion
@@ -413,11 +414,15 @@ class MainScreenTest {
     }
 
     /** Makes the screen search for the query the way the search panel does. */
-    private fun search(query: String) {
+    private fun search(rawQuery: String) {
+        val query = SearchQuery.of(rawQuery)
         rule.runOnUiThread { viewModel.onIntent(MainIntent.Search(query)) }
         rule.awaitCondition { viewModel.state.value.query == query }
         rule.waitForIdle()
     }
+
+    /** Builds the query the way the screen does: anything that comes in is canonical. */
+    private fun query(raw: String): SearchQuery = SearchQuery.of(raw)
 
     /** The label of the star band with the given cap, e.g. `500K stars`. */
     private fun bandLabel(cap: Int): String = label(R.string.stars_label, CountFormatter.format(cap))

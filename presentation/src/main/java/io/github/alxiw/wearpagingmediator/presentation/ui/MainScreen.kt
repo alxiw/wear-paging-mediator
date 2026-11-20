@@ -25,6 +25,7 @@ import androidx.wear.compose.foundation.lazy.rememberTransformingLazyColumnState
 import androidx.wear.compose.material3.AppScaffold
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.ScreenScaffold
+import io.github.alxiw.wearpagingmediator.domain.model.SearchQuery
 import io.github.alxiw.wearpagingmediator.domain.model.Repo
 import io.github.alxiw.wearpagingmediator.presentation.Constants.DEFAULT_QUERY
 import io.github.alxiw.wearpagingmediator.presentation.MainViewModel
@@ -37,7 +38,6 @@ import io.github.alxiw.wearpagingmediator.presentation.model.ListModel
 import io.github.alxiw.wearpagingmediator.presentation.ui.preview.PreviewLoadStates
 import io.github.alxiw.wearpagingmediator.presentation.ui.preview.WearPreview
 import io.github.alxiw.wearpagingmediator.presentation.ui.preview.rememberPreviewPagingItems
-import kotlin.text.ifEmpty
 
 /**
  * The connected part of the screen: it owns the state holder, the launcher of the voice panel and
@@ -139,7 +139,7 @@ internal fun MainScreenContent(
                 // search button
                 item {
                     SearchButton(
-                        query = state.query.ifEmpty { DEFAULT_QUERY },
+                        query = state.query.value,
                         onClick = onSearchClick
                     )
                 }
@@ -181,12 +181,14 @@ private fun WearScreenPreview(content: @Composable () -> Unit) {
     MaterialTheme { content() }
 }
 
+private val PREVIEW_QUERY = SearchQuery.of("compose")
+
 @WearPreview
 @Composable
 private fun MainScreenLoadedPreview() {
     WearScreenPreview {
         MainScreenContent(
-            state = MainState(query = "compose"),
+            state = MainState(query = PREVIEW_QUERY),
             repos = rememberPreviewPagingItems(),
             onSearchClick = {},
             onRepoClick = {},
@@ -200,7 +202,7 @@ private fun MainScreenLoadedPreview() {
 private fun MainScreenLoadingPreview() {
     WearScreenPreview {
         MainScreenContent(
-            state = MainState(query = "compose"),
+            state = MainState(query = PREVIEW_QUERY),
             repos = rememberPreviewPagingItems(
                 items = emptyList(),
                 loadStates = PreviewLoadStates.loading
@@ -217,7 +219,7 @@ private fun MainScreenLoadingPreview() {
 private fun MainScreenEmptyPreview() {
     WearScreenPreview {
         MainScreenContent(
-            state = MainState(query = "compose"),
+            state = MainState(query = PREVIEW_QUERY),
             repos = rememberPreviewPagingItems(
                 items = emptyList(),
                 loadStates = PreviewLoadStates.endOfList
@@ -234,7 +236,7 @@ private fun MainScreenEmptyPreview() {
 private fun MainScreenRefreshErrorPreview() {
     WearScreenPreview {
         MainScreenContent(
-            state = MainState(query = "compose"),
+            state = MainState(query = PREVIEW_QUERY),
             repos = rememberPreviewPagingItems(loadStates = PreviewLoadStates.refreshError),
             onSearchClick = {},
             onRepoClick = {},

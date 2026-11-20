@@ -9,7 +9,7 @@ import androidx.paging.insertSeparators
 import androidx.paging.map
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.alxiw.wearpagingmediator.domain.GetReposFlowUseCase
-import io.github.alxiw.wearpagingmediator.domain.SearchQuery
+import io.github.alxiw.wearpagingmediator.domain.model.SearchQuery
 import io.github.alxiw.wearpagingmediator.presentation.Constants.DEFAULT_QUERY
 import io.github.alxiw.wearpagingmediator.presentation.model.MainEffect
 import io.github.alxiw.wearpagingmediator.presentation.model.MainIntent
@@ -65,7 +65,7 @@ class MainViewModel @Inject constructor(
      * `maxSize` of the paging config.
      */
     private val pagingDataCache =
-        LinkedHashMap<String, CachedQuery>(MAX_CACHED_QUERIES, 0.75f, true)
+        LinkedHashMap<SearchQuery, CachedQuery>(MAX_CACHED_QUERIES, 0.75f, true)
 
     val pagingDataFlow: Flow<PagingData<ListModel>> = state
         .map { it.query }
@@ -98,16 +98,19 @@ class MainViewModel @Inject constructor(
     }
 
     /** A value saved by an older version can be in another case: restore it canonical. */
-    private fun restoredQuery(key: String): String =
-        SearchQuery.normalize(savedStateHandle[key] ?: DEFAULT_QUERY).ifEmpty { DEFAULT_QUERY }
+    private fun restoredQuery(key: String): SearchQuery {
+        val saved = savedStateHandle.get<String>(key) ?: DEFAULT_QUERY.value
+        val query = SearchQuery.of(saved)
+        return if (query.isEmpty) DEFAULT_QUERY else query
+    }
 
     /** Saves only what changed, so the handle is not rewritten on every scroll. */
     private fun persist(previous: MainState, current: MainState) {
         if (current.query != previous.query) {
-            savedStateHandle[KEY_LAST_SEARCH_QUERY] = current.query
+            savedStateHandle[KEY_LAST_SEARCH_QUERY] = current.query.value
         }
         if (current.lastQueryScrolled != previous.lastQueryScrolled) {
-            savedStateHandle[KEY_LAST_QUERY_SCROLLED] = current.lastQueryScrolled
+            savedStateHandle[KEY_LAST_QUERY_SCROLLED] = current.lastQueryScrolled.value
         }
     }
 
@@ -116,14 +119,14 @@ class MainViewModel @Inject constructor(
      * own: its window stays ready while the query is cached and is released as soon as the cache
      * drops the query.
      */
-    private fun pagingDataFor(queryString: String): Flow<PagingData<ListModel>> {
-        pagingDataCache[queryString]?.let { return it.data }
+    private fun pagingDataFor(query: SearchQuery): Flow<PagingData<ListModel>> {
+        pagingDataCache[query]?.let { return it.data }
 
         // a failure of one query must not cancel the scope of the ViewModel
         val job = SupervisorJob(viewModelScope.coroutineContext[Job])
-        val data = searchRepo(queryString)
+        val data = searchRepo(query)
             .cachedIn(CoroutineScope(viewModelScope.coroutineContext + job))
-        pagingDataCache[queryString] = CachedQuery(job = job, data = data)
+        pagingDataCache[query] = CachedQuery(job = job, data = data)
 
         // the cache is read in the order of access: the first entry is the least recently used one
         while (pagingDataCache.size > MAX_CACHED_QUERIES) {
@@ -134,8 +137,8 @@ class MainViewModel @Inject constructor(
         return data
     }
 
-    private fun searchRepo(queryString: String): Flow<PagingData<ListModel>> {
-        return getReposFlow(queryString).map { pagingData ->
+    private fun searchRepo(query: SearchQuery): Flow<PagingData<ListModel>> {
+        return getReposFlow(query).map { pagingData ->
             pagingData
                 .map { ListModel.RepoItem(it) }
                 .insertSeparators { before, after ->

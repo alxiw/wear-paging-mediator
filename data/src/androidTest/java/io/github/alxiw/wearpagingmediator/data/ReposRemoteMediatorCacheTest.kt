@@ -14,6 +14,7 @@ import io.github.alxiw.wearpagingmediator.data.local.model.RepoEntity
 import io.github.alxiw.wearpagingmediator.data.remote.api.GitHubApi
 import io.github.alxiw.wearpagingmediator.data.remote.model.RepoResponse
 import io.github.alxiw.wearpagingmediator.data.remote.model.RepoSearchResponse
+import io.github.alxiw.wearpagingmediator.domain.model.SearchQuery
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -54,15 +55,15 @@ class ReposRemoteMediatorCacheTest {
         val kotlinMediator = ReposRemoteMediator(QUERY_KOTLIN, api, database)
 
         assertTrue(androidMediator.load(LoadType.REFRESH, pagingState()) is RemoteMediator.MediatorResult.Success)
-        assertEquals(2, database.reposDao().countSearchResults(QUERY_ANDROID))
+        assertEquals(2, database.reposDao().countSearchResults(QUERY_ANDROID.value))
 
         // Both queries return the same repositories, so this refresh re-inserts existing rows.
         assertTrue(kotlinMediator.load(LoadType.REFRESH, pagingState()) is RemoteMediator.MediatorResult.Success)
 
-        assertEquals(2, database.reposDao().countSearchResults(QUERY_ANDROID))
-        assertEquals(2, database.reposDao().countSearchResults(QUERY_KOTLIN))
-        assertEquals(2, database.reposDao().countRemoteKeys(QUERY_ANDROID))
-        assertEquals(2, database.reposDao().countRemoteKeys(QUERY_KOTLIN))
+        assertEquals(2, database.reposDao().countSearchResults(QUERY_ANDROID.value))
+        assertEquals(2, database.reposDao().countSearchResults(QUERY_KOTLIN.value))
+        assertEquals(2, database.reposDao().countRemoteKeys(QUERY_ANDROID.value))
+        assertEquals(2, database.reposDao().countRemoteKeys(QUERY_KOTLIN.value))
     }
 
     @Test
@@ -81,8 +82,8 @@ class ReposRemoteMediatorCacheTest {
         )
         assertTrue(refreshed.load(LoadType.REFRESH, pagingState()) is RemoteMediator.MediatorResult.Success)
 
-        assertEquals(2, database.reposDao().countSearchResults(QUERY_ANDROID))
-        assertEquals(listOf(0, 1), database.reposDao().positionsFor(QUERY_ANDROID))
+        assertEquals(2, database.reposDao().countSearchResults(QUERY_ANDROID.value))
+        assertEquals(listOf(0, 1), database.reposDao().positionsFor(QUERY_ANDROID.value))
         assertEquals(500, database.reposDao().starsOf(FIRST_REPO_ID))
     }
 
@@ -119,8 +120,8 @@ class ReposRemoteMediatorCacheTest {
 
     private companion object {
         const val TEST_DB_NAME = "repos_remote_mediator_cache_test.db"
-        const val QUERY_ANDROID = "android"
-        const val QUERY_KOTLIN = "kotlin"
+        val QUERY_ANDROID = SearchQuery.of("android")
+        val QUERY_KOTLIN = SearchQuery.of("kotlin")
         const val FIRST_REPO_ID = 1L
         const val SECOND_REPO_ID = 2L
         const val PAGE_SIZE = 30

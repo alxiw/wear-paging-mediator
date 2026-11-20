@@ -6,6 +6,7 @@ import androidx.paging.PagingData
 import androidx.paging.PagingSource
 import androidx.paging.PagingState
 import io.github.alxiw.wearpagingmediator.domain.Repository
+import io.github.alxiw.wearpagingmediator.domain.model.SearchQuery
 import io.github.alxiw.wearpagingmediator.domain.model.Repo
 import kotlinx.coroutines.flow.Flow
 
@@ -19,7 +20,7 @@ import kotlinx.coroutines.flow.Flow
 internal class FakeRepository : Repository {
 
     /** The queries the results were asked for, in the order they were asked for. */
-    val queries = mutableListOf<String>()
+    val queries = mutableListOf<SearchQuery>()
 
     /** The pages that were requested, in the order they were requested. */
     val loads = mutableListOf<PagingSource.LoadParams<Int>>()
@@ -32,7 +33,7 @@ internal class FakeRepository : Repository {
     var load: suspend (query: String, params: PagingSource.LoadParams<Int>) -> PagingSource.LoadResult<Int, Repo> =
         { _, _ -> page(REPOS) }
 
-    override fun getReposFlow(query: String): Flow<PagingData<Repo>> {
+    override fun getReposFlow(query: SearchQuery): Flow<PagingData<Repo>> {
         queries += query
         return Pager(
             config = PagingConfig(
@@ -44,11 +45,11 @@ internal class FakeRepository : Repository {
         ).flow
     }
 
-    private inner class Source(private val query: String) : PagingSource<Int, Repo>() {
+    private inner class Source(private val query: SearchQuery) : PagingSource<Int, Repo>() {
 
         override suspend fun load(params: LoadParams<Int>): LoadResult<Int, Repo> {
             loads += params
-            return load(query, params).also { pagesServed++ }
+            return load(query.value, params).also { pagesServed++ }
         }
 
         override fun getRefreshKey(state: PagingState<Int, Repo>): Int? = null

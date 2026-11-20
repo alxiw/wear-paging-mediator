@@ -15,19 +15,26 @@ import io.github.alxiw.wearpagingmediator.data.local.model.SearchQueryResultEnti
 import io.github.alxiw.wearpagingmediator.data.local.model.TopicEntity
 import io.github.alxiw.wearpagingmediator.data.mapper.RepoResponseMapper
 import io.github.alxiw.wearpagingmediator.data.remote.model.RepoResponse
+import io.github.alxiw.wearpagingmediator.domain.model.SearchQuery
 
 /**
- * Keeps the cached results of [query] in sync with GitHub: the rows cached by a previous load are
+ * Keeps the cached results of a query in sync with GitHub: the rows cached by a previous load are
  * shown by the Room PagingSource as soon as the screen opens, while [load] refreshes them from the
  * network in the background. Cached and freshly loaded results look the same, so the source of a
  * page is logged when GitHub was asked.
+ *
+ * The query is canonical by its type, and [queryKey] is the only form the API and the cache see:
+ * the request and the rows of one search cannot disagree on the case or the spacing of the query.
  */
 @ExperimentalPagingApi
 internal class ReposRemoteMediator(
-    private val query: String,
+    query: SearchQuery,
     private val api: GitHubApi,
     private val database: GitHubDatabase
 ) : RemoteMediator<Int, RepoEntity>() {
+
+    /** The string the request of the page and the cached rows of the query are keyed by. */
+    private val queryKey: String = query.value
 
     override suspend fun load(loadType: LoadType, state: PagingState<Int, RepoEntity>): MediatorResult {
         val page = when (loadType) {
@@ -48,7 +55,7 @@ internal class ReposRemoteMediator(
         }
 
         if (loadType == LoadType.REFRESH) {
-            Log.d("HELLO", "$query: page $page is loaded from GitHub")
+            Log.d("HELLO", "$queryKey: page $page is loaded from GitHub")
         }
 
         // Remote keys cached before the search result limit was respected can point past the last
@@ -60,7 +67,7 @@ internal class ReposRemoteMediator(
         return runCatching {
             val loadSize = if (loadType == LoadType.REFRESH) state.config.initialLoadSize else state.config.pageSize
             val repos = api.searchRepos(
-                query = query,
+                query = queryKey,
                 page = page,
                 pageSize = loadSize
             )
@@ -92,13 +99,18 @@ internal class ReposRemoteMediator(
         val repos = repoResponses.map { RepoResponseMapper.toRepoEntity(it) }
         database.withTransaction {
             if (loadType == LoadType.REFRESH) {
-                database.remoteKeysDao().clearRemoteKeys(query)
-                database.reposDao().deleteResultsForQuery(query)
+                database.remoteKeysDao().clearRemoteKeys(queryKey)
+                database.reposDao().deleteResultsForQuery(queryKey)
             }
             val prevKey = if (page == STARTING_PAGE_INDEX) null else page - 1
             val nextKey = if (endOfPaginationReached) null else page + (loadSize / state.config.pageSize)
             val keys = repos.map {
-                RepoRemoteKeyEntity(repoId = it.id, query = query, prevKey = prevKey, nextKey = nextKey)
+                RepoRemoteKeyEntity(
+                    repoId = it.id,
+                    query = queryKey,
+                    prevKey = prevKey,
+                    nextKey = nextKey
+                )
             }
             database.remoteKeysDao().insertAll(keys)
             database.reposDao().upsertAll(repos)
@@ -106,7 +118,7 @@ internal class ReposRemoteMediator(
             val startPosition = (page - 1) * state.config.pageSize
             val searchResults = repos.mapIndexed { index, repo ->
                 SearchQueryResultEntity(
-                    query = query,
+                    query = queryKey,
                     repoId = repo.id,
                     position = startPosition + index
                 )
@@ -127,14 +139,14 @@ internal class ReposRemoteMediator(
         return state.pages
             .lastOrNull { it.data.isNotEmpty() }
             ?.data?.lastOrNull()
-            ?.let { repo -> database.remoteKeysDao().remoteKeysRepoId(repo.id, query) }
+            ?.let { repo -> database.remoteKeysDao().remoteKeysRepoId(repo.id, queryKey) }
     }
 
     private suspend fun getRemoteKeyForFirstItem(state: PagingState<Int, RepoEntity>): RepoRemoteKeyEntity? {
         return state.pages
             .firstOrNull { it.data.isNotEmpty() }
             ?.data?.firstOrNull()
-            ?.let { repo -> database.remoteKeysDao().remoteKeysRepoId(repo.id, query) }
+            ?.let { repo -> database.remoteKeysDao().remoteKeysRepoId(repo.id, queryKey) }
     }
 
     private suspend fun getRemoteKeyClosestToCurrentPosition(
@@ -142,7 +154,7 @@ internal class ReposRemoteMediator(
     ): RepoRemoteKeyEntity? {
         return state.anchorPosition?.let { position ->
             state.closestItemToPosition(position)?.id?.let { repoId ->
-                database.remoteKeysDao().remoteKeysRepoId(repoId, query)
+                database.remoteKeysDao().remoteKeysRepoId(repoId, queryKey)
             }
         }
     }

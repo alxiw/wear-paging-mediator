@@ -1,6 +1,7 @@
 package io.github.alxiw.wearpagingmediator.presentation
 
+import io.github.alxiw.wearpagingmediator.domain.model.SearchQuery
+
 object Constants {
-    /** The query of the first screen: canonical (lower case), see `SearchQuery`. */
-    const val DEFAULT_QUERY = "android"
+    val DEFAULT_QUERY: SearchQuery = SearchQuery.of("android")
 }

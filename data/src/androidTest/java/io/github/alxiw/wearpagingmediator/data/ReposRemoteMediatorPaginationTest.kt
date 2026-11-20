@@ -16,6 +16,7 @@ import io.github.alxiw.wearpagingmediator.data.local.model.SearchQueryResultEnti
 import io.github.alxiw.wearpagingmediator.data.remote.api.GitHubApi
 import io.github.alxiw.wearpagingmediator.data.remote.model.RepoResponse
 import io.github.alxiw.wearpagingmediator.data.remote.model.RepoSearchResponse
+import io.github.alxiw.wearpagingmediator.domain.model.SearchQuery
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -83,9 +84,12 @@ class ReposRemoteMediatorPaginationTest {
             "the mediator has to paginate up to the limit, ${api.returnedIds.size} items were loaded",
             api.returnedIds.size >= ReposRemoteMediator.MAX_SEARCH_RESULTS
         )
-        assertEquals(api.returnedIds.size, database.reposDao().countSearchResults(QUERY))
+        assertEquals(api.returnedIds.size, database.reposDao().countSearchResults(QUERY.value))
         // Positions stay contiguous, otherwise the Room PagingSource offsets would not match pages.
-        assertEquals(api.returnedIds.indices.toList(), database.reposDao().positionsFor(QUERY))
+        assertEquals(
+            api.returnedIds.indices.toList(),
+            database.reposDao().positionsFor(QUERY.value)
+        )
     }
 
     @Test
@@ -94,7 +98,13 @@ class ReposRemoteMediatorPaginationTest {
         val mediator = ReposRemoteMediator(QUERY, api, database)
         database.reposDao().upsertAll(listOf(repoEntity(CACHED_REPO_ID)))
         database.reposDao().insertSearchResults(
-            listOf(SearchQueryResultEntity(query = QUERY, repoId = CACHED_REPO_ID, position = 0))
+            listOf(
+                SearchQueryResultEntity(
+                    query = QUERY.value,
+                    repoId = CACHED_REPO_ID,
+                    position = 0
+                )
+            )
         )
         // The last page GitHub serves is 34: a key cached before the limit was respected can point
         // to page 35, which always ends with HTTP 422.
@@ -102,7 +112,7 @@ class ReposRemoteMediatorPaginationTest {
             listOf(
                 RepoRemoteKeyEntity(
                     repoId = CACHED_REPO_ID,
-                    query = QUERY,
+                    query = QUERY.value,
                     prevKey = LAST_SERVED_PAGE - 1,
                     nextKey = LAST_SERVED_PAGE + 1
                 )
@@ -246,7 +256,7 @@ class ReposRemoteMediatorPaginationTest {
 
     private companion object {
         const val TEST_DB_NAME = "repos_remote_mediator_pagination_test.db"
-        const val QUERY = "android"
+        val QUERY = SearchQuery.of("android")
         const val LARGE_TOTAL = 2_000_000
         const val MAX_LOADS = 100
         const val CACHED_REPO_ID = 990L

@@ -41,9 +41,9 @@ class SearchButtonTest {
     @Test
     fun buttonShowsTheDefaultQueryAsIs() {
         rule.setWearContent {
-            SearchButton(query = DEFAULT_QUERY, onClick = {})
+            SearchButton(query = DEFAULT_QUERY.value, onClick = {})
         }
 
-        rule.onNodeWithText(DEFAULT_QUERY).assertIsDisplayed()
+        rule.onNodeWithText(DEFAULT_QUERY.value).assertIsDisplayed()
     }
 }
