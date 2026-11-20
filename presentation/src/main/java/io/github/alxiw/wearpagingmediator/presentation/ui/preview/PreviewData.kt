@@ -8,11 +8,8 @@ import androidx.paging.PagingData
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
 import io.github.alxiw.wearpagingmediator.domain.model.Repo
-import io.github.alxiw.wearpagingmediator.presentation.R
 import io.github.alxiw.wearpagingmediator.presentation.model.StarBand
 import io.github.alxiw.wearpagingmediator.presentation.model.ListModel
-import io.github.alxiw.wearpagingmediator.presentation.util.CountFormatter
-import io.github.alxiw.wearpagingmediator.presentation.util.UiText
 import kotlinx.coroutines.flow.flowOf
 
 /** The results of the previews: their star bands are the ones the separators of a search show. */
@@ -46,11 +43,10 @@ internal val previewRepos: List<Repo> = listOf(
 /** The results with the separators between their star bands, the way the ViewModel maps them. */
 internal val previewModels: List<ListModel> = buildList {
     previewRepos.forEachIndexed { index, repo ->
-        val cap = StarBand.separatorAbove(
+        StarBand.separatorAbove(
             before = previewRepos.getOrNull(index - 1)?.stars,
             after = repo.stars
-        )
-        if (cap != null) add(ListModel.SeparatorItem(starsLabel(cap)))
+        )?.let { add(ListModel.SeparatorItem(it)) }
         add(ListModel.RepoItem(repo))
     }
 }
@@ -106,8 +102,3 @@ internal fun previewRepo(
 )
 
 private val FAILURE = LoadState.Error(RuntimeException("Preview failure"))
-
-private fun starsLabel(cap: Int): UiText = when {
-    cap > 0 -> UiText.StringResource(R.string.stars_label, CountFormatter.format(cap))
-    else -> UiText.StringResource(R.string.stars_zero)
-}

@@ -45,9 +45,15 @@ class CountFormatterTest {
 
     @Test
     fun separatorCapsAreFormattedAsTheCards() {
-        val caps = listOf(1_000_000, 500_000, 100_000, 50_000, 10_000, 5_000, 1_000, 500, 100, 50, 10, 5, 1)
+        val caps = listOf(
+            1_000_000, 500_000, 200_000, 100_000, 50_000, 20_000, 10_000, 5_000, 2_000, 1_000,
+            500, 200, 100, 50, 20, 10, 5, 1
+        )
         assertEquals(
-            listOf("1M", "500K", "100K", "50K", "10K", "5K", "1K", "500", "100", "50", "10", "5", "1"),
+            listOf(
+                "1M", "500K", "200K", "100K", "50K", "20K", "10K", "5K", "2K", "1K",
+                "500", "200", "100", "50", "20", "10", "5", "1"
+            ),
             caps.map(CountFormatter::format)
         )
     }

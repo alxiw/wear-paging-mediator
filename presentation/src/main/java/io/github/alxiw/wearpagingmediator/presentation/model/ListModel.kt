@@ -1,7 +1,6 @@
 package io.github.alxiw.wearpagingmediator.presentation.model
 
 import io.github.alxiw.wearpagingmediator.domain.model.Repo
-import io.github.alxiw.wearpagingmediator.presentation.util.UiText
 
 /**
  * An item of the list of results. The list identifies an item by its [stableKey] and reuses the
@@ -21,8 +20,8 @@ sealed class ListModel {
         override val contentType: String get() = REPO
     }
 
-    data class SeparatorItem(val description: UiText) : ListModel() {
-        override val stableKey: Any get() = description.stableKey
+    data class SeparatorItem(val cap: Int) : ListModel() {
+        override val stableKey: Any get() = "${SEPARATOR}_$cap"
         override val contentType: String get() = SEPARATOR
     }
 

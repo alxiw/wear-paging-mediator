@@ -5,9 +5,8 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import io.github.alxiw.wearpagingmediator.presentation.R
-import io.github.alxiw.wearpagingmediator.presentation.testing.label
+import io.github.alxiw.wearpagingmediator.presentation.testing.pluralLabel
 import io.github.alxiw.wearpagingmediator.presentation.testing.setWearContent
-import io.github.alxiw.wearpagingmediator.presentation.util.UiText
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -20,29 +19,38 @@ class SeparatorCardTest {
     val rule = createComposeRule()
 
     @Test
-    fun bandLabelIsResolvedFromTheResources() {
+    fun millionCapIsAbbreviatedInBandLabel() {
         rule.setWearContent {
-            SeparatorCard(description = UiText.StringResource(R.string.stars_label, "500K"))
+            SeparatorCard(cap = 1_000_000)
         }
 
-        rule.onNodeWithText(label(R.string.stars_label, "500K")).assertIsDisplayed()
+        rule.onNodeWithText(pluralLabel(R.plurals.stars_label, 1_000_000, "1M")).assertIsDisplayed()
     }
 
     @Test
-    fun bandWithoutStarsHasItsOwnLabel() {
+    fun thousandCapIsAbbreviatedInBandLabel() {
         rule.setWearContent {
-            SeparatorCard(description = UiText.StringResource(R.string.stars_zero))
+            SeparatorCard(cap = 500_000)
         }
 
-        rule.onNodeWithText(label(R.string.stars_zero)).assertIsDisplayed()
+        rule.onNodeWithText(pluralLabel(R.plurals.stars_label, 500_000, "500K")).assertIsDisplayed()
     }
 
     @Test
-    fun dynamicLabelIsShownAsIs() {
+    fun smallCapIsShownAsIsInBandLabel() {
         rule.setWearContent {
-            SeparatorCard(description = UiText.DynamicString("42 stars"))
+            SeparatorCard(cap = 100)
         }
 
-        rule.onNodeWithText("42 stars").assertIsDisplayed()
+        rule.onNodeWithText(pluralLabel(R.plurals.stars_label, 100, "100")).assertIsDisplayed()
+    }
+
+    @Test
+    fun singleStarCapUsesSingularForm() {
+        rule.setWearContent {
+            SeparatorCard(cap = 1)
+        }
+
+        rule.onNodeWithText(pluralLabel(R.plurals.stars_label, 1, "1")).assertIsDisplayed()
     }
 }

@@ -4,28 +4,30 @@ package io.github.alxiw.wearpagingmediator.presentation.model
  * The star bands the results of a search are grouped by: a band gets one label above its first
  * result, see [separatorAbove].
  *
- * A band is capped by its threshold: the label "100 and below" covers the results with 100 down to
- * 51 stars, the next label "50 and below" covers 50 down to 11 stars and so on.
+ * A separator at threshold `T` means every result above it has at least `T` stars (`>= T`) and
+ * every result in the band below it has fewer than `T` stars (`< T`). For example, the label
+ * "50 stars" sits between 50 and 49 and covers results with 49 down to 20 stars; "1 star" sits
+ * between 1 and 0 and covers results with 0 stars.
  */
 object StarBand {
 
     /**
-     * The cap of the band the [stars] of a result fall under: the smallest threshold that is not
-     * less than [stars], `null` for a result without stars.
+     * The exclusive upper bound of the band [stars] falls into: the smallest threshold strictly
+     * greater than [stars], or `null` for the open top band (`stars >= 1_000_000`) and negative
+     * values.
      */
     fun of(stars: Int): Int? = when {
-        stars <= 0 -> null
-        // results above the largest threshold stay in the open top band that is never labelled
-        else -> THRESHOLDS.lastOrNull { stars <= it } ?: THRESHOLDS.first()
+        stars < 0 -> null
+        else -> THRESHOLDS.lastOrNull { stars < it }
     }
 
     /**
-     * The cap of the band a separator is inserted for, `null` when the [after] result stays in the
-     * band of the [before] one.
+     * The threshold of the separator inserted above [after], or `null` when [after] stays in the
+     * same or a wider band than [before].
      *
      * The bands are ordered from the widest cap to the narrowest one as the results go down, so a
-     * separator appears only when the cap of the [after] result is narrower than the cap of the
-     * [before] one.
+     * separator appears only when the band of [after] is strictly narrower than the band of
+     * [before] (with the open top band `>= 1_000_000` being wider than every threshold).
      *
      * The first result of the list is never labelled ([before] is `null`): such a label is inserted
      * above the card that the list anchors in the middle of the screen, and
@@ -33,12 +35,14 @@ object StarBand {
      * the search button left the screen even though the list stood at its very top.
      */
     fun separatorAbove(before: Int?, after: Int): Int? {
+        if (before == null || before < 0) return null
         val afterBand = of(after) ?: return null
-        val beforeBand = before?.let(::of) ?: return null
-        return afterBand.takeIf { beforeBand > it }
+        val beforeBand = of(before)
+        return afterBand.takeIf { beforeBand == null || beforeBand > it }
     }
 
     private val THRESHOLDS = listOf(
-        1_000_000, 500_000, 100_000, 50_000, 10_000, 5_000, 1_000, 500, 100, 50, 10, 5, 1
+        1_000_000, 500_000, 200_000, 100_000, 50_000, 20_000, 10_000, 5_000, 2_000, 1_000,
+        500, 200, 100, 50, 20, 10, 5, 1
     )
 }

@@ -1,6 +1,7 @@
 package io.github.alxiw.wearpagingmediator.presentation.testing
 
 import android.content.Context
+import androidx.annotation.PluralsRes
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.SemanticsMatcher
@@ -15,6 +16,11 @@ internal const val TIMEOUT_MILLIS = 5_000L
 /** The string of the resources of the module, in the language the test runs in. */
 internal fun label(@StringRes resId: Int, vararg args: Any): String =
     ApplicationProvider.getApplicationContext<Context>().getString(resId, *args)
+
+/** The plural string of the resources of the module, in the language the test runs in. */
+internal fun pluralLabel(@PluralsRes resId: Int, count: Int, vararg args: Any): String =
+    ApplicationProvider.getApplicationContext<Context>().resources
+        .getQuantityString(resId, count, *args)
 
 /** Shows [content] the way the app does: in the theme of the module. */
 internal fun ComposeContentTestRule.setWearContent(content: @Composable () -> Unit) {

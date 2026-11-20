@@ -7,7 +7,7 @@ import io.github.alxiw.wearpagingmediator.domain.model.Repo
 internal const val PAGE_SIZE = 3
 
 /**
- * The first result of a search: the star band of its 1M cap is the widest one, so no separator is
+ * The first result of a search: it stays in the open top band (`>= 1M`), so no separator is
  * inserted above it (see `StarBand.separatorAbove`).
  */
 internal val FIRST_REPO = repo(
@@ -19,7 +19,7 @@ internal val FIRST_REPO = repo(
     forks = 50_000
 )
 
-/** The second result: its band (500K and below) is narrower than the band of [FIRST_REPO]. */
+/** The second result: its band (below 500K) is narrower than the band of [FIRST_REPO]. */
 internal val SECOND_REPO = repo(
     id = 2,
     name = "second-repo",
@@ -29,7 +29,7 @@ internal val SECOND_REPO = repo(
     forks = 1_200
 )
 
-/** The third result: the only one of its page in the band of 100 stars and below. */
+/** The third result: the only one of its page in the band below 100 stars. */
 internal val THIRD_REPO = repo(
     id = 3,
     name = "third-repo",
@@ -42,7 +42,7 @@ internal val THIRD_REPO = repo(
 /** The results of the first page of any query. */
 internal val REPOS = listOf(FIRST_REPO, SECOND_REPO, THIRD_REPO)
 
-/** The star bands the labels of [REPOS] separate: 500K and below, then 100 and below. */
+/** The star bands the labels of [REPOS] separate: below 500K, then below 100. */
 internal val BAND_CAPS = listOf(500_000, 100)
 
 internal fun repo(

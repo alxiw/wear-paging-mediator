@@ -37,6 +37,7 @@ import io.github.alxiw.wearpagingmediator.presentation.testing.awaitCondition
 import io.github.alxiw.wearpagingmediator.presentation.testing.awaitNode
 import io.github.alxiw.wearpagingmediator.presentation.testing.label
 import io.github.alxiw.wearpagingmediator.presentation.testing.page
+import io.github.alxiw.wearpagingmediator.presentation.testing.pluralLabel
 import io.github.alxiw.wearpagingmediator.presentation.testing.repo
 import io.github.alxiw.wearpagingmediator.presentation.util.CountFormatter
 import java.io.IOException
@@ -529,5 +530,6 @@ class MainScreenTest {
     private fun query(raw: String): SearchQuery = SearchQuery.of(raw)
 
     /** The label of the star band with the given cap, e.g. `500K stars`. */
-    private fun bandLabel(cap: Int): String = label(R.string.stars_label, CountFormatter.format(cap))
+    private fun bandLabel(cap: Int): String =
+        pluralLabel(R.plurals.stars_label, cap, CountFormatter.format(cap))
 }

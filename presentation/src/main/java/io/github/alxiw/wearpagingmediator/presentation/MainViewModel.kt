@@ -18,8 +18,6 @@ import io.github.alxiw.wearpagingmediator.presentation.model.MainReducer
 import io.github.alxiw.wearpagingmediator.presentation.model.MainState
 import io.github.alxiw.wearpagingmediator.presentation.model.StarBand
 import io.github.alxiw.wearpagingmediator.presentation.model.ListModel
-import io.github.alxiw.wearpagingmediator.presentation.util.CountFormatter
-import io.github.alxiw.wearpagingmediator.presentation.util.UiText
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -175,18 +173,12 @@ class MainViewModel @Inject constructor(
                 .map { ListModel.RepoItem(it) }
                 .insertSeparators { before, after ->
                     after ?: return@insertSeparators null
-                    val band = StarBand.separatorAbove(
-                        before = before?.let { it.repo.stars },
+                    StarBand.separatorAbove(
+                        before = before?.repo?.stars,
                         after = after.repo.stars
-                    ) ?: return@insertSeparators null
-                    ListModel.SeparatorItem(starsLabel(band))
+                    )?.let(ListModel::SeparatorItem)
                 }
         }
-    }
-
-    private fun starsLabel(cap: Int): UiText = when {
-        cap > 0 -> UiText.StringResource(R.string.stars_label, CountFormatter.format(cap))
-        else -> UiText.StringResource(R.string.stars_zero)
     }
 
     /** The results of one visited query, kept until the cache drops the query. */

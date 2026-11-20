@@ -173,7 +173,7 @@ internal fun MainScreenContent(
                             onLongClick = { onRepoLongClick(item.repo) },
                             onLongClickLabel = linkLabel
                         )
-                        is ListModel.SeparatorItem -> SeparatorCard(description = item.description)
+                        is ListModel.SeparatorItem -> SeparatorCard(cap = item.cap)
                         null -> Unit // Placeholder for loading
                     }
                 }

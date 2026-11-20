@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -22,12 +22,15 @@ import androidx.wear.compose.material3.Card
 import androidx.wear.compose.material3.ScreenScaffold
 import androidx.wear.tooling.preview.devices.WearDevices
 import io.github.alxiw.wearpagingmediator.presentation.R
-import io.github.alxiw.wearpagingmediator.presentation.util.UiText
+import io.github.alxiw.wearpagingmediator.presentation.util.CountFormatter
 
 @Composable
-fun SeparatorCard(description: UiText) {
+fun SeparatorCard(
+    cap: Int,
+    modifier: Modifier = Modifier
+) {
     Card(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .height(46.dp)
     ) {
@@ -36,7 +39,7 @@ fun SeparatorCard(description: UiText) {
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = description.asString(),
+                text = pluralStringResource(R.plurals.stars_label, cap, CountFormatter.format(cap)),
                 color = MaterialTheme.colorScheme.secondaryContainer,
                 style = MaterialTheme.typography.labelLarge,
                 textAlign = TextAlign.Center,
@@ -58,7 +61,7 @@ fun SeparatorCardPreview() {
                     modifier = Modifier.fillMaxSize()
                 ) {
                     item { Spacer(modifier = Modifier.height(65.dp)) }
-                    item { SeparatorCard(description = UiText.DynamicString(stringResource(R.string.stars_label, 100))) }
+                    item { SeparatorCard(cap = 100) }
                 }
             }
         }
