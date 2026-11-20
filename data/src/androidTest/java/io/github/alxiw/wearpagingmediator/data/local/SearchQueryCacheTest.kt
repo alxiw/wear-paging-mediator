@@ -60,16 +60,16 @@ class SearchQueryCacheTest {
         dao.upsertAll(listOf(repo(stars = 100)))
         dao.insertSearchResults(
             listOf(
-                SearchQueryResultEntity(query = QUERY_MIXED_CASE, repoId = REPO_ID, position = 0),
-                SearchQueryResultEntity(query = QUERY_LOWER_CASE, repoId = REPO_ID, position = 0)
+                SearchQueryResultEntity(query = QUERY_ANDROID, repoId = REPO_ID, position = 0),
+                SearchQueryResultEntity(query = QUERY_KOTLIN, repoId = REPO_ID, position = 0)
             )
         )
 
         // A refresh of another query upserts the same repository with fresh data.
         dao.upsertAll(listOf(repo(stars = 200)))
 
-        assertEquals(1, dao.countSearchResults(QUERY_MIXED_CASE))
-        assertEquals(1, dao.countSearchResults(QUERY_LOWER_CASE))
+        assertEquals(1, dao.countSearchResults(QUERY_ANDROID))
+        assertEquals(1, dao.countSearchResults(QUERY_KOTLIN))
         assertEquals(200, dao.starsOf(REPO_ID))
     }
 
@@ -78,28 +78,28 @@ class SearchQueryCacheTest {
         dao.upsertAll(listOf(repo()))
         dao.insertSearchResults(
             listOf(
-                SearchQueryResultEntity(query = QUERY_MIXED_CASE, repoId = REPO_ID, position = 0),
-                SearchQueryResultEntity(query = "Kotlin", repoId = REPO_ID, position = 0)
+                SearchQueryResultEntity(query = QUERY_ANDROID, repoId = REPO_ID, position = 0),
+                SearchQueryResultEntity(query = QUERY_KOTLIN, repoId = REPO_ID, position = 0)
             )
         )
 
-        dao.deleteResultsForQuery("Kotlin")
+        dao.deleteResultsForQuery(QUERY_KOTLIN)
 
-        assertEquals(0, dao.countSearchResults("Kotlin"))
-        assertEquals(1, dao.countSearchResults(QUERY_MIXED_CASE))
+        assertEquals(0, dao.countSearchResults(QUERY_KOTLIN))
+        assertEquals(1, dao.countSearchResults(QUERY_ANDROID))
     }
 
     @Test
     fun remoteKeysOfOtherQueriesSurviveRepoReinsert() = runBlocking {
         dao.upsertAll(listOf(repo()))
         dao.insertSearchResults(
-            listOf(SearchQueryResultEntity(query = QUERY_MIXED_CASE, repoId = REPO_ID, position = 0))
+            listOf(SearchQueryResultEntity(query = QUERY_ANDROID, repoId = REPO_ID, position = 0))
         )
         database.remoteKeysDao().insertAll(
             listOf(
                 RepoRemoteKeyEntity(
                     repoId = REPO_ID,
-                    query = QUERY_MIXED_CASE,
+                    query = QUERY_ANDROID,
                     prevKey = null,
                     nextKey = 2
                 )
@@ -108,8 +108,8 @@ class SearchQueryCacheTest {
 
         dao.upsertAll(listOf(repo(stars = 300)))
 
-        assertEquals(1, dao.countSearchResults(QUERY_MIXED_CASE))
-        assertEquals(1, dao.countRemoteKeys(QUERY_MIXED_CASE))
+        assertEquals(1, dao.countSearchResults(QUERY_ANDROID))
+        assertEquals(1, dao.countRemoteKeys(QUERY_ANDROID))
     }
 
     private fun repo(stars: Int = 100) = RepoEntity(
@@ -125,7 +125,7 @@ class SearchQueryCacheTest {
     private companion object {
         const val TEST_DB_NAME = "search_query_cache_test.db"
         const val REPO_ID = 42L
-        const val QUERY_MIXED_CASE = "Android"
-        const val QUERY_LOWER_CASE = "android"
+        const val QUERY_ANDROID = "android"
+        const val QUERY_KOTLIN = "kotlin"
     }
 }

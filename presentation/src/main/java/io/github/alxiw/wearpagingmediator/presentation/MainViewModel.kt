@@ -9,6 +9,7 @@ import androidx.paging.insertSeparators
 import androidx.paging.map
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.alxiw.wearpagingmediator.domain.GetReposFlowUseCase
+import io.github.alxiw.wearpagingmediator.domain.SearchQuery
 import io.github.alxiw.wearpagingmediator.presentation.Constants.DEFAULT_QUERY
 import io.github.alxiw.wearpagingmediator.presentation.model.MainEffect
 import io.github.alxiw.wearpagingmediator.presentation.model.MainIntent
@@ -86,8 +87,8 @@ class MainViewModel @Inject constructor(
      * scrolled to the top for are restored, so the results come back where they were left.
      */
     private fun restoredState(): MainState {
-        val query = savedStateHandle[KEY_LAST_SEARCH_QUERY] ?: DEFAULT_QUERY
-        val lastQueryScrolled = savedStateHandle[KEY_LAST_QUERY_SCROLLED] ?: DEFAULT_QUERY
+        val query = restoredQuery(KEY_LAST_SEARCH_QUERY)
+        val lastQueryScrolled = restoredQuery(KEY_LAST_QUERY_SCROLLED)
         return MainState(
             query = query,
             lastQueryScrolled = lastQueryScrolled,
@@ -95,6 +96,10 @@ class MainViewModel @Inject constructor(
             scrollToTopPending = false
         )
     }
+
+    /** A value saved by an older version can be in another case: restore it canonical. */
+    private fun restoredQuery(key: String): String =
+        SearchQuery.normalize(savedStateHandle[key] ?: DEFAULT_QUERY).ifEmpty { DEFAULT_QUERY }
 
     /** Saves only what changed, so the handle is not rewritten on every scroll. */
     private fun persist(previous: MainState, current: MainState) {

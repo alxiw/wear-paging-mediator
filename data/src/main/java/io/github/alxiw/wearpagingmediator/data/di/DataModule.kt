@@ -65,7 +65,8 @@ object DataModule {
         )
             .addMigrations(
                 GitHubDatabase.MIGRATION_1_2,
-                GitHubDatabase.MIGRATION_2_3
+                GitHubDatabase.MIGRATION_2_3,
+                GitHubDatabase.MIGRATION_3_4
             )
             .build()
     }

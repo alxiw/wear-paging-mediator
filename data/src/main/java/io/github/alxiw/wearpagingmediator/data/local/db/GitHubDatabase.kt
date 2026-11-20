@@ -20,7 +20,7 @@ import io.github.alxiw.wearpagingmediator.data.local.model.TopicEntity
         RepoTopicCrossRef::class,
         SearchQueryResultEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 internal abstract class GitHubDatabase : RoomDatabase() {
@@ -47,6 +47,17 @@ internal abstract class GitHubDatabase : RoomDatabase() {
                 db.execSQL("CREATE TABLE IF NOT EXISTS `repo_remote_keys` (`repoId` INTEGER NOT NULL, `query` TEXT NOT NULL, `prevKey` INTEGER, `nextKey` INTEGER, PRIMARY KEY(`repoId`, `query`))")
                 db.execSQL("CREATE TABLE IF NOT EXISTS `search_query_results` (`query` TEXT NOT NULL, `repoId` INTEGER NOT NULL, `position` INTEGER NOT NULL, PRIMARY KEY(`query`, `repoId`), FOREIGN KEY(`repoId`) REFERENCES `repos`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_search_query_results_repoId` ON `search_query_results` (`repoId`)")
+            }
+        }
+
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Queries are canonical now (lower case, words separated by a space instead of an
+                // underscore), so every cached query is keyed differently and would never be read
+                // again. The per-query cache is dropped and is filled on the next refresh; `repos`
+                // is shared between queries and stays.
+                db.execSQL("DELETE FROM `search_query_results`")
+                db.execSQL("DELETE FROM `repo_remote_keys`")
             }
         }
     }

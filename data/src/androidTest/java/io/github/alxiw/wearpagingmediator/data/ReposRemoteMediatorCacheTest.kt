@@ -50,39 +50,39 @@ class ReposRemoteMediatorCacheTest {
     @Test
     fun refreshOfAnotherQueryKeepsCachedResultsOfPreviousQuery() = runBlocking {
         val api = FakeGitHubApi(listOf(repoResponse(FIRST_REPO_ID), repoResponse(SECOND_REPO_ID)))
-        val mixedCaseMediator = ReposRemoteMediator(QUERY_MIXED_CASE, api, database)
-        val lowerCaseMediator = ReposRemoteMediator(QUERY_LOWER_CASE, api, database)
+        val androidMediator = ReposRemoteMediator(QUERY_ANDROID, api, database)
+        val kotlinMediator = ReposRemoteMediator(QUERY_KOTLIN, api, database)
 
-        assertTrue(mixedCaseMediator.load(LoadType.REFRESH, pagingState()) is RemoteMediator.MediatorResult.Success)
-        assertEquals(2, database.reposDao().countSearchResults(QUERY_MIXED_CASE))
+        assertTrue(androidMediator.load(LoadType.REFRESH, pagingState()) is RemoteMediator.MediatorResult.Success)
+        assertEquals(2, database.reposDao().countSearchResults(QUERY_ANDROID))
 
         // Both queries return the same repositories, so this refresh re-inserts existing rows.
-        assertTrue(lowerCaseMediator.load(LoadType.REFRESH, pagingState()) is RemoteMediator.MediatorResult.Success)
+        assertTrue(kotlinMediator.load(LoadType.REFRESH, pagingState()) is RemoteMediator.MediatorResult.Success)
 
-        assertEquals(2, database.reposDao().countSearchResults(QUERY_MIXED_CASE))
-        assertEquals(2, database.reposDao().countSearchResults(QUERY_LOWER_CASE))
-        assertEquals(2, database.reposDao().countRemoteKeys(QUERY_MIXED_CASE))
-        assertEquals(2, database.reposDao().countRemoteKeys(QUERY_LOWER_CASE))
+        assertEquals(2, database.reposDao().countSearchResults(QUERY_ANDROID))
+        assertEquals(2, database.reposDao().countSearchResults(QUERY_KOTLIN))
+        assertEquals(2, database.reposDao().countRemoteKeys(QUERY_ANDROID))
+        assertEquals(2, database.reposDao().countRemoteKeys(QUERY_KOTLIN))
     }
 
     @Test
     fun refreshReplacesResultsOfTheSameQueryWithoutDuplicates() = runBlocking {
         val mediator = ReposRemoteMediator(
-            QUERY_MIXED_CASE,
+            QUERY_ANDROID,
             FakeGitHubApi(listOf(repoResponse(FIRST_REPO_ID, stars = 100))),
             database
         )
         assertTrue(mediator.load(LoadType.REFRESH, pagingState()) is RemoteMediator.MediatorResult.Success)
 
         val refreshed = ReposRemoteMediator(
-            QUERY_MIXED_CASE,
+            QUERY_ANDROID,
             FakeGitHubApi(listOf(repoResponse(FIRST_REPO_ID, stars = 500), repoResponse(SECOND_REPO_ID, stars = 200))),
             database
         )
         assertTrue(refreshed.load(LoadType.REFRESH, pagingState()) is RemoteMediator.MediatorResult.Success)
 
-        assertEquals(2, database.reposDao().countSearchResults(QUERY_MIXED_CASE))
-        assertEquals(listOf(0, 1), database.reposDao().positionsFor(QUERY_MIXED_CASE))
+        assertEquals(2, database.reposDao().countSearchResults(QUERY_ANDROID))
+        assertEquals(listOf(0, 1), database.reposDao().positionsFor(QUERY_ANDROID))
         assertEquals(500, database.reposDao().starsOf(FIRST_REPO_ID))
     }
 
@@ -119,8 +119,8 @@ class ReposRemoteMediatorCacheTest {
 
     private companion object {
         const val TEST_DB_NAME = "repos_remote_mediator_cache_test.db"
-        const val QUERY_MIXED_CASE = "Android"
-        const val QUERY_LOWER_CASE = "android"
+        const val QUERY_ANDROID = "android"
+        const val QUERY_KOTLIN = "kotlin"
         const val FIRST_REPO_ID = 1L
         const val SECOND_REPO_ID = 2L
         const val PAGE_SIZE = 30

@@ -8,6 +8,11 @@ internal interface GitHubApi {
 
     @GET("search/repositories")
     suspend fun searchRepos(
+        /**
+         * The query with words separated by spaces: Retrofit percent-encodes the value, so
+         * `android kotlin` goes on the wire as `q=android%20kotlin` and GitHub reads it as two
+         * words that both have to match.
+         */
         @Query("q") query: String,
         @Query("page") page: Int,
         @Query("per_page") pageSize: Int,

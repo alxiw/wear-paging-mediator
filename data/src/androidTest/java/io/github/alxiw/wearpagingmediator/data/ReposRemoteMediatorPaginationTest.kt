@@ -246,7 +246,7 @@ class ReposRemoteMediatorPaginationTest {
 
     private companion object {
         const val TEST_DB_NAME = "repos_remote_mediator_pagination_test.db"
-        const val QUERY = "Android"
+        const val QUERY = "android"
         const val LARGE_TOTAL = 2_000_000
         const val MAX_LOADS = 100
         const val CACHED_REPO_ID = 990L

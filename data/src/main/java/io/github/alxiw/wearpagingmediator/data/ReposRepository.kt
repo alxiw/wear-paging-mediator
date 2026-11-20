@@ -9,6 +9,7 @@ import io.github.alxiw.wearpagingmediator.data.local.db.GitHubDatabase
 import io.github.alxiw.wearpagingmediator.data.mapper.RepoEntityMapper
 import io.github.alxiw.wearpagingmediator.data.remote.api.GitHubApi
 import io.github.alxiw.wearpagingmediator.domain.Repository
+import io.github.alxiw.wearpagingmediator.domain.SearchQuery
 import io.github.alxiw.wearpagingmediator.domain.model.Repo
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -21,17 +22,19 @@ internal class ReposRepository @Inject constructor(
 
     @OptIn(ExperimentalPagingApi::class)
     override fun getReposFlow(query: String): Flow<PagingData<Repo>> {
-        val apiQuery = query.trim().replace(' ', '_')
+        // GitHub is case insensitive and reads words separated by a space as one query, so the
+        // canonical form is what the network and Room have to key on. Retrofit percent-encodes
+        // the value of @Query, the database stores the readable query with its spaces.
+        val searchQuery = SearchQuery.normalize(query)
         return Pager(
             config = pagingConfig,
             remoteMediator = ReposRemoteMediator(
-                query = apiQuery,
+                query = searchQuery,
                 api = api,
                 database = database
             ),
             pagingSourceFactory = {
-                // "%${query.trim()}%".replace(' ', '%') for searchAllRepos
-                database.reposDao().getReposForQuery(apiQuery)
+                database.reposDao().getReposForQuery(searchQuery)
             }
         ).flow.map { pagingData -> pagingData.map { RepoEntityMapper.toRepo(it) } }
     }

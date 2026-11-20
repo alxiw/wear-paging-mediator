@@ -11,8 +11,8 @@ import org.junit.Test
 class MainReducerTest {
 
     private val state = MainState(
-        query = "Android",
-        lastQueryScrolled = "Android",
+        query = "android",
+        lastQueryScrolled = "android",
         scrollToTopPending = false
     )
 
@@ -21,7 +21,7 @@ class MainReducerTest {
         val reduction = MainReducer.reduce(state, MainIntent.Search("kotlin"))
 
         assertEquals(
-            MainState(query = "kotlin", lastQueryScrolled = "Android", scrollToTopPending = true),
+            MainState(query = "kotlin", lastQueryScrolled = "android", scrollToTopPending = true),
             reduction.state
         )
         assertEquals(emptyList<MainEffect>(), reduction.effects)
@@ -45,6 +45,14 @@ class MainReducerTest {
     }
 
     @Test
+    fun submittedMultiWordQueryIsSingleSpaced() {
+        val reduction = MainReducer.reduce(state, MainIntent.QuerySubmitted("  Android \t kotlin \n"))
+
+        assertEquals("android kotlin", reduction.state.query)
+        assertEquals(true, reduction.state.scrollToTopPending)
+    }
+
+    @Test
     fun closedPanelIsNotASearch() {
         assertEquals(Reduction(state), MainReducer.reduce(state, MainIntent.QuerySubmitted(null)))
     }
@@ -55,7 +63,7 @@ class MainReducerTest {
     }
 
     @Test
-    fun repeatedQueryOnlyRefreshesTheResults() {
+    fun repeatedQueryInAnotherCaseOnlyRefreshesTheResults() {
         val reduction = MainReducer.reduce(state, MainIntent.QuerySubmitted("Android"))
 
         assertEquals(state, reduction.state)
@@ -81,7 +89,7 @@ class MainReducerTest {
         val reduction = MainReducer.reduce(pending, MainIntent.ScrolledToTop("Android"))
 
         assertEquals(
-            pending.copy(lastQueryScrolled = "Android", scrollToTopPending = true),
+            pending.copy(lastQueryScrolled = "android", scrollToTopPending = true),
             reduction.state
         )
     }
