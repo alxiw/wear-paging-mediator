@@ -1,5 +1,6 @@
 package io.github.alxiw.wearpagingmediator.data
 
+import android.util.Log
 import androidx.paging.ExperimentalPagingApi
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
@@ -11,17 +12,38 @@ import io.github.alxiw.wearpagingmediator.data.remote.api.GitHubApi
 import io.github.alxiw.wearpagingmediator.domain.Repository
 import io.github.alxiw.wearpagingmediator.domain.model.SearchQuery
 import io.github.alxiw.wearpagingmediator.domain.model.Repo
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 
 internal class ReposRepository @Inject constructor(
     private val api: GitHubApi,
-    private val database: GitHubDatabase
+    private val database: GitHubDatabase,
+    private val recentQueries: RecentQueriesCache
 ) : Repository {
 
+    /**
+     * The query is registered before the results are paged: the cache then evicts the least
+     * recently opened query instead of the one being opened, and the eviction cannot invalidate the
+     * paging source of the query it is preparing.
+     */
+    override fun getReposFlow(query: SearchQuery): Flow<PagingData<Repo>> = flow {
+        try {
+            recentQueries.touch(query.value)
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (error: Exception) {
+            // a failure to maintain the cache must not fail the search itself
+            Log.w("HELLO", "${query.value}: cache maintenance failed", error)
+        }
+        emitAll(pagerFlow(query))
+    }
+
     @OptIn(ExperimentalPagingApi::class)
-    override fun getReposFlow(query: SearchQuery): Flow<PagingData<Repo>> {
+    private fun pagerFlow(query: SearchQuery): Flow<PagingData<Repo>> {
         // The query is canonical by its type, so the mediator and the Room source key on the same
         // value: Retrofit percent-encodes it for @Query, the database stores it as a readable key.
         return Pager(

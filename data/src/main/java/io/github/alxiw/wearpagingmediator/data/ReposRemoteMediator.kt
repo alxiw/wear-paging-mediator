@@ -12,7 +12,6 @@ import io.github.alxiw.wearpagingmediator.data.local.model.RepoRemoteKeyEntity
 import io.github.alxiw.wearpagingmediator.data.local.model.RepoEntity
 import io.github.alxiw.wearpagingmediator.data.local.model.RepoTopicCrossRef
 import io.github.alxiw.wearpagingmediator.data.local.model.SearchQueryResultEntity
-import io.github.alxiw.wearpagingmediator.data.local.model.TopicEntity
 import io.github.alxiw.wearpagingmediator.data.mapper.RepoResponseMapper
 import io.github.alxiw.wearpagingmediator.data.remote.model.RepoResponse
 import io.github.alxiw.wearpagingmediator.domain.model.SearchQuery
@@ -125,11 +124,8 @@ internal class ReposRemoteMediator(
             }
             database.reposDao().insertSearchResults(searchResults)
 
-            val topics = repoResponses.flatMap { it.topics }.distinct().map { TopicEntity(it) }
-            database.reposDao().insertTopics(topics)
-
             val crossRefs = repoResponses.flatMap { response ->
-                response.topics.map { topic -> RepoTopicCrossRef(response.id, topic) }
+                response.topics.map { topic -> RepoTopicCrossRef(repoId = response.id, topic = topic) }
             }
             val repoIds = repos.map { it.id }
             // the response holds the whole topic list of these repos, not only the new links

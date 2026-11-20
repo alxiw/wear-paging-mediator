@@ -1,5 +1,6 @@
 package io.github.alxiw.wearpagingmediator.data.local.model
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 
 /**
@@ -8,11 +9,15 @@ import androidx.room.Entity
  */
 @Entity(
     tableName = "repo_remote_keys",
-    primaryKeys = ["repoId", "query"]
+    primaryKeys = ["repo_id", "query"]
 )
 data class RepoRemoteKeyEntity(
+    @ColumnInfo(name = "repo_id")
     val repoId: Long,
+    @ColumnInfo(name = "query")
     val query: String,
+    @ColumnInfo(name = "prev_key")
     val prevKey: Int?,
+    @ColumnInfo(name = "next_key")
     val nextKey: Int?
 )

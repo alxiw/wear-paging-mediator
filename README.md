@@ -24,8 +24,9 @@ The project follows **Clean Architecture** across four Gradle modules with unidi
 ### Offline-First Data & Paging Pipeline
 
 - **Single source of truth** — Room's `PagingSource` emits cached results immediately when a query is opened, while `ReposRemoteMediator` fetches fresh pages from the GitHub Search API in the background.
-- **Transactional caching** — Each page load atomically updates repositories, per-query result ordering (`SearchQueryResultEntity`), pagination keys (`RepoRemoteKeyEntity`), and repository-topic relations (`TopicEntity` / `RepoTopicCrossRef`) in Room.
-- **Query isolation & caching** — Queries are normalized via `SearchQuery`, cached per query in Room, and backed by an in-memory LRU cache of recent `Pager` flows in `MainViewModel` so returning to a previous query reuses its paging window.
+- **Transactional caching** — Each page load atomically updates repositories, per-query result ordering (`SearchQueryResultEntity`), pagination keys (`RepoRemoteKeyEntity`), and repository-topic relations (`RepoTopicCrossRef`) in Room.
+- **Bounded query cache** — Queries are normalized via `SearchQuery` and cached per query in Room. `RecentQueriesCache` keeps the results of the `MAX_CACHED_QUERIES` most recently *opened* queries (opening counts, not a successful refresh, so offline use is accounted for) and deletes the rows of the rest together with the repositories and topics no other query references. `MainViewModel` additionally keeps an in-memory LRU of three `Pager` flows — fewer than the Room limit on purpose, so a query that is still shown is never evicted from the database.
+- **Schema migrations** — Room exports the schema of every version to `data/schemas`; `GitHubDatabaseMigrationTest` runs the real migrations on those exported schemas and validates the result against the current one.
 - **Offline resilience** — Previously loaded pages and repository topics remain readable from Room without a network connection.
 
 ### Presentation (MVI + Wear Compose)

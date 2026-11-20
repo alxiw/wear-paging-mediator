@@ -28,6 +28,16 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+    sourceSets {
+        // schemas are assets of the instrumented tests: MigrationTestHelper reads them from there
+        getByName("androidTest").assets.directories.add("$projectDir/schemas")
+    }
+}
+
+// Room exports the schema of every version to `schemas`, so a migration can be validated against
+// the real schema of the version it upgrades from.
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 kotlin {
@@ -71,4 +81,5 @@ dependencies {
     // ui tests
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.room.testing)
 }

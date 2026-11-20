@@ -1,5 +1,6 @@
 package io.github.alxiw.wearpagingmediator.data.local.model
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -12,19 +13,22 @@ import androidx.room.Index
  */
 @Entity(
     tableName = "search_query_results",
-    primaryKeys = ["query", "repoId"],
+    primaryKeys = ["query", "repo_id"],
     foreignKeys = [
         ForeignKey(
             entity = RepoEntity::class,
             parentColumns = ["id"],
-            childColumns = ["repoId"],
+            childColumns = ["repo_id"],
             onDelete = ForeignKey.CASCADE
         )
     ],
-    indices = [Index("repoId")]
+    indices = [Index("repo_id")]
 )
 data class SearchQueryResultEntity(
+    @ColumnInfo(name = "query")
     val query: String,
+    @ColumnInfo(name = "repo_id")
     val repoId: Long,
+    @ColumnInfo(name = "position")
     val position: Int
 )

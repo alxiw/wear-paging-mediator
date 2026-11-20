@@ -9,7 +9,6 @@ import androidx.room.Upsert
 import io.github.alxiw.wearpagingmediator.data.local.model.RepoEntity
 import io.github.alxiw.wearpagingmediator.data.local.model.RepoTopicCrossRef
 import io.github.alxiw.wearpagingmediator.data.local.model.SearchQueryResultEntity
-import io.github.alxiw.wearpagingmediator.data.local.model.TopicEntity
 
 @Dao
 internal interface ReposDao {
@@ -22,9 +21,6 @@ internal interface ReposDao {
     @Upsert
     suspend fun upsertAll(repos: List<RepoEntity>)
 
-    @Insert(onConflict = OnConflictStrategy.IGNORE)
-    suspend fun insertTopics(topics: List<TopicEntity>)
-
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertRepoTopics(crossRefs: List<RepoTopicCrossRef>)
 
@@ -32,12 +28,12 @@ internal interface ReposDao {
      * A page carries the whole current topic list of its repos, so their links are dropped before
      * the new ones are inserted: otherwise a topic removed on GitHub would stay in the cache.
      */
-    @Query("DELETE FROM repo_topic_cross_ref WHERE id IN (:repoIds)")
+    @Query("DELETE FROM repo_topic_cross_ref WHERE repo_id IN (:repoIds)")
     suspend fun deleteRepoTopics(repoIds: List<Long>)
 
     @Query("""
         SELECT topic FROM repo_topic_cross_ref
-        WHERE id = :repoId
+        WHERE repo_id = :repoId
         ORDER BY topic COLLATE NOCASE ASC
     """)
     suspend fun topicsOf(repoId: Long): List<String>
@@ -59,31 +55,34 @@ internal interface ReposDao {
 
     @Query("""
         SELECT repos.* FROM repos 
-        INNER JOIN search_query_results ON repos.id = search_query_results.repoId 
+        INNER JOIN search_query_results ON repos.id = search_query_results.repo_id 
         WHERE search_query_results.`query` = :query 
         ORDER BY search_query_results.position ASC
     """)
     fun getReposForQuery(query: String): PagingSource<Int, RepoEntity>
 
-    @Query("""
-        SELECT DISTINCT repos.* FROM repos 
-        LEFT JOIN repo_topic_cross_ref ON repos.id = repo_topic_cross_ref.id 
-        WHERE repos.name LIKE :query 
-        OR repos.description LIKE :query 
-        OR repo_topic_cross_ref.topic LIKE :query 
-        ORDER BY stars DESC, name ASC
-    """)
-    fun searchAllRepos(query: String): PagingSource<Int, RepoEntity>
-
-    @Query("DELETE FROM repos")
-    suspend fun deleteAllRepos()
-
     @Query("DELETE FROM search_query_results WHERE `query` = :query")
     suspend fun deleteResultsForQuery(query: String)
 
-    @Query("DELETE FROM topics")
-    suspend fun deleteAllTopics()
+    @Query("DELETE FROM search_query_results WHERE `query` IN (:queries)")
+    suspend fun deleteResultsForQueries(queries: List<String>)
 
-    @Query("DELETE FROM repo_topic_cross_ref")
-    suspend fun deleteAllRepoTopics()
+    /**
+     * Deletes repositories no cached query references anymore. Only rows without any reference are
+     * removed: deleting a repository still referenced by another query would cascade into that
+     * query's results.
+     */
+    @Query("""
+        DELETE FROM repos
+        WHERE NOT EXISTS (SELECT 1 FROM search_query_results WHERE search_query_results.repo_id = repos.id)
+        AND NOT EXISTS (SELECT 1 FROM repo_remote_keys WHERE repo_remote_keys.repo_id = repos.id)
+    """)
+    suspend fun deleteOrphanRepos()
+
+    /** Deletes the topics of the repositories deleted by [deleteOrphanRepos]. */
+    @Query("""
+        DELETE FROM repo_topic_cross_ref
+        WHERE NOT EXISTS (SELECT 1 FROM repos WHERE repos.id = repo_topic_cross_ref.repo_id)
+    """)
+    suspend fun deleteOrphanRepoTopics()
 }

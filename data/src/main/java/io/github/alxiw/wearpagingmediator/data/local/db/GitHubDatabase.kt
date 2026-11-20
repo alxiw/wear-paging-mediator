@@ -6,27 +6,29 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import io.github.alxiw.wearpagingmediator.data.local.dao.RemoteKeysDao
 import io.github.alxiw.wearpagingmediator.data.local.dao.ReposDao
+import io.github.alxiw.wearpagingmediator.data.local.dao.SearchQueriesDao
 import io.github.alxiw.wearpagingmediator.data.local.model.RepoRemoteKeyEntity
 import io.github.alxiw.wearpagingmediator.data.local.model.RepoEntity
 import io.github.alxiw.wearpagingmediator.data.local.model.RepoTopicCrossRef
+import io.github.alxiw.wearpagingmediator.data.local.model.SearchQueryEntity
 import io.github.alxiw.wearpagingmediator.data.local.model.SearchQueryResultEntity
-import io.github.alxiw.wearpagingmediator.data.local.model.TopicEntity
 
 @Database(
     entities = [
         RepoEntity::class,
         RepoRemoteKeyEntity::class,
-        TopicEntity::class,
         RepoTopicCrossRef::class,
-        SearchQueryResultEntity::class
+        SearchQueryResultEntity::class,
+        SearchQueryEntity::class
     ],
-    version = 4,
-    exportSchema = false
+    version = 5,
+    exportSchema = true
 )
 internal abstract class GitHubDatabase : RoomDatabase() {
 
     abstract fun reposDao(): ReposDao
     abstract fun remoteKeysDao(): RemoteKeysDao
+    abstract fun searchQueriesDao(): SearchQueriesDao
 
     companion object {
         const val DB_NAME = "wearpagingmediator.db"
@@ -58,6 +60,59 @@ internal abstract class GitHubDatabase : RoomDatabase() {
                 // is shared between queries and stays.
                 db.execSQL("DELETE FROM `search_query_results`")
                 db.execSQL("DELETE FROM `repo_remote_keys`")
+            }
+        }
+
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // columns follow the snake_case naming of the tables
+                db.execSQL("ALTER TABLE `search_query_results` RENAME COLUMN `repoId` TO `repo_id`")
+                db.execSQL("ALTER TABLE `repo_remote_keys` RENAME COLUMN `repoId` TO `repo_id`")
+                db.execSQL("ALTER TABLE `repo_remote_keys` RENAME COLUMN `prevKey` TO `prev_key`")
+                db.execSQL("ALTER TABLE `repo_remote_keys` RENAME COLUMN `nextKey` TO `next_key`")
+                db.execSQL("ALTER TABLE `repo_topic_cross_ref` RENAME COLUMN `id` TO `repo_id`")
+                // renaming a column does not rename its index, but Room derives the name from it
+                db.execSQL("DROP INDEX IF EXISTS `index_search_query_results_repoId`")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_search_query_results_repo_id` ON `search_query_results` (`repo_id`)")
+
+                // the cache is bounded now: the opened queries are registered to find the ones to evict
+                db.execSQL("CREATE TABLE IF NOT EXISTS `search_queries` (`query` TEXT NOT NULL, `accessed_at` INTEGER NOT NULL, PRIMARY KEY(`query`))")
+                // The moment a query was used is not known for the cached ones, so they are all
+                // equally old and the least recently used ones are picked by name.
+                db.execSQL("""
+                    INSERT OR IGNORE INTO `search_queries` (`query`, `accessed_at`)
+                    SELECT `query`, 0 FROM `search_query_results`
+                    UNION
+                    SELECT `query`, 0 FROM `repo_remote_keys`
+                """)
+                // 5 is the limit of the version this migration produces: a later version may keep
+                // more queries, but this migration must keep using its own limit.
+                db.execSQL("""
+                    CREATE TEMP TABLE `evicted_queries` AS
+                    SELECT `query` FROM `search_queries`
+                    ORDER BY `accessed_at` DESC, `query` DESC
+                    LIMIT -1 OFFSET 5
+                """)
+                db.execSQL("DELETE FROM `search_query_results` WHERE `query` IN (SELECT `query` FROM `evicted_queries`)")
+                db.execSQL("DELETE FROM `repo_remote_keys` WHERE `query` IN (SELECT `query` FROM `evicted_queries`)")
+                db.execSQL("DELETE FROM `search_queries` WHERE `query` IN (SELECT `query` FROM `evicted_queries`)")
+                db.execSQL("DROP TABLE `evicted_queries`")
+
+                // write-only: the topics of a repo are read from `repo_topic_cross_ref`
+                db.execSQL("DROP TABLE IF EXISTS `topics`")
+
+                // Only rows without any reference are removed: `search_query_results` cascades from
+                // `repos`, so a repository still referenced by another query would take that
+                // query's results with it.
+                db.execSQL("""
+                    DELETE FROM `repos`
+                    WHERE NOT EXISTS (SELECT 1 FROM `search_query_results` WHERE `search_query_results`.`repo_id` = `repos`.`id`)
+                    AND NOT EXISTS (SELECT 1 FROM `repo_remote_keys` WHERE `repo_remote_keys`.`repo_id` = `repos`.`id`)
+                """)
+                db.execSQL("""
+                    DELETE FROM `repo_topic_cross_ref`
+                    WHERE NOT EXISTS (SELECT 1 FROM `repos` WHERE `repos`.`id` = `repo_topic_cross_ref`.`repo_id`)
+                """)
             }
         }
     }
