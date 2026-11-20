@@ -237,6 +237,20 @@ class MainScreenTest {
         assertEquals(FIRST_REPO.url, intent.data?.toString())
     }
 
+    @Test
+    fun resultThatCannotBeOpenedKeepsTheScreenAlive() {
+        // a watch without a browser answers the link with an activity only the system may start
+        showScreen(startActivityError = SecurityException("no browser"))
+        scrollTo(FIRST_REPO.name)
+
+        rule.onNodeWithText(FIRST_REPO.name).performClick()
+
+        // the link is handed over to nobody, and the screen stays on its results instead of dying
+        // with the effect that failed to open it
+        rule.awaitCondition { context.startedIntents.size == 1 }
+        rule.onNodeWithText(FIRST_REPO.name).assertIsDisplayed()
+    }
+
     // endregion
 
     // region search
@@ -380,11 +394,12 @@ class MainScreenTest {
     /** Shows the screen over the given data layer and search input. */
     private fun showScreen(
         search: FakeSearchResults = FakeSearchResults(),
-        repository: FakeRepository = FakeRepository()
+        repository: FakeRepository = FakeRepository(),
+        startActivityError: RuntimeException? = null
     ) {
         this.repository = repository
         viewModel = MainViewModel(GetReposFlowUseCase(repository), SavedStateHandle())
-        context = RecordingContext(rule.activity)
+        context = RecordingContext(rule.activity, startActivityError)
 
         rule.setContent {
             CompositionLocalProvider(

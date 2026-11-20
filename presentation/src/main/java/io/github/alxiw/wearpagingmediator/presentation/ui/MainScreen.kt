@@ -1,7 +1,7 @@
 package io.github.alxiw.wearpagingmediator.presentation.ui
 
-import android.content.Intent
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,7 +13,6 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.core.net.toUri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
@@ -81,9 +80,10 @@ fun MainScreen(
         viewModel.effects.collect { effect ->
             when (effect) {
                 MainEffect.RefreshResults -> currentRepos.refresh()
-                is MainEffect.OpenUrl -> {
-                    val intent = Intent(Intent.ACTION_VIEW, effect.url.toUri())
-                    context.startActivity(intent)
+                // a watch may have nothing to open a link with, so a failure to hand the link
+                // over must not bring the screen down with it
+                is MainEffect.OpenUrl -> if (!context.openLink(effect.url)) {
+                    Toast.makeText(context, R.string.error_open_link, Toast.LENGTH_SHORT).show()
                 }
             }
         }
