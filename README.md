@@ -6,20 +6,36 @@ A Wear OS app for searching GitHub repositories, powered by Paging 3 and built w
 
 - 🔍 Search GitHub repositories by keyword via voice or text input
 - 📄 Paginated results with dynamic star-based separators
+- 🏷️ Repository details dialog with full description, stats, and clickable topics for instant topic-based search
 - 💾 Offline support — cached data is available without network connection
 - ⌚ Wear OS native UI with rotary scroll and round display support
 
 ## Architecture
 
-- Network + Cache — Paging 3 Remote Mediator fetches data from GitHub API and persists it to Room database
-- Offline-first — users retain access to previously loaded results when offline
-- UI — TransformingLazyColumn with paging items, separators grouped by star count, and load state footer
+The project follows **Clean Architecture** across four Gradle modules with unidirectional data flow (**MVI**) in the presentation layer and an **offline-first Paging 3** pipeline in the data layer.
 
-The Remote Mediator refreshes the query in the background while the Room PagingSource emits the cached results right away, so the screen opens on the cache instead of the network.
+### Modules
+
+- **`:app`** — Application setup, Hilt DI graph, and `MainActivity` entry point.
+- **`:domain`** — Core models (`Repo`, `SearchQuery`), `Repository` interface, and use cases (`GetReposFlowUseCase`, `GetRepoTopicsUseCase`).
+- **`:data`** — `ReposRepository`, Retrofit `GitHubApi`, Room `GitHubDatabase`, mappers, and `ReposRemoteMediator`.
+- **`:presentation`** — MVI state holder (`MainViewModel`), pure reducer (`MainReducer`), UI models/intents/effects, and Wear OS Compose screens.
+
+### Offline-First Data & Paging Pipeline
+
+- **Single source of truth** — Room's `PagingSource` emits cached results immediately when a query is opened, while `ReposRemoteMediator` fetches fresh pages from the GitHub Search API in the background.
+- **Transactional caching** — Each page load atomically updates repositories, per-query result ordering (`SearchQueryResultEntity`), pagination keys (`RepoRemoteKeyEntity`), and repository-topic relations (`TopicEntity` / `RepoTopicCrossRef`) in Room.
+- **Query isolation & caching** — Queries are normalized via `SearchQuery`, cached per query in Room, and backed by an in-memory LRU cache of recent `Pager` flows in `MainViewModel` so returning to a previous query reuses its paging window.
+- **Offline resilience** — Previously loaded pages and repository topics remain readable from Room without a network connection.
+
+### Presentation (MVI + Wear Compose)
+
+- **Unidirectional flow** — UI events are sent as `MainIntent`s to `MainViewModel`, processed by the pure `MainReducer` into a new `MainState` (with active query persistence via `SavedStateHandle`) and one-off `MainEffect`s (e.g., refreshing results or opening a link).
+- **Wear OS UI** — Built with `TransformingLazyColumn`, dynamic star-count separators (`StarBand`), contextual load-state notices/footers, and `TopicsDialog` that loads repository topics on demand from Room when a card is tapped.
 
 ## Screenshots
 
-<img src="img/sample.png" alt="drawing" width="180"/>
+<img src="img/sample.png" alt="drawing" width="720"/>
 
 ## Dependencies
 
