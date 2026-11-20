@@ -24,7 +24,9 @@ internal object MainReducer {
                 topicsDialog = TopicsDialogState.Loading(
                     repoId = intent.repo.id,
                     repoName = intent.repo.name,
-                    repoDescription = intent.repo.description
+                    repoDescription = intent.repo.description,
+                    repoStars = intent.repo.stars,
+                    repoForks = intent.repo.forks
                 )
             )
         )
@@ -83,6 +85,8 @@ internal object MainReducer {
                     repoId = intent.repoId,
                     repoName = dialog.repoName,
                     repoDescription = dialog.repoDescription,
+                    repoStars = dialog.repoStars,
+                    repoForks = dialog.repoForks,
                     topics = intent.topics
                 )
             )
@@ -100,7 +104,9 @@ internal object MainReducer {
                 topicsDialog = TopicsDialogState.Failed(
                     repoId = intent.repoId,
                     repoName = dialog.repoName,
-                    repoDescription = dialog.repoDescription
+                    repoDescription = dialog.repoDescription,
+                    repoStars = dialog.repoStars,
+                    repoForks = dialog.repoForks
                 )
             )
         )

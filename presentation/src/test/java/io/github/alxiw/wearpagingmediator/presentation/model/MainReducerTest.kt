@@ -105,13 +105,25 @@ class MainReducerTest {
 
     @Test
     fun tappedRepoOpensItsTopicsDialog() {
-        val repo = repo(id = 2, name = "paging", description = "A paging sample")
+        val repo = repo(
+            id = 2,
+            name = "paging",
+            description = "A paging sample",
+            stars = STARS,
+            forks = FORKS
+        )
 
         val reduction = MainReducer.reduce(state, MainIntent.RepoClicked(repo))
 
         assertEquals(
             state.copy(
-                topicsDialog = TopicsDialogState.Loading(repo.id, repo.name, repo.description)
+                topicsDialog = TopicsDialogState.Loading(
+                    repo.id,
+                    repo.name,
+                    repo.description,
+                    STARS,
+                    FORKS
+                )
             ),
             reduction.state
         )
@@ -139,7 +151,9 @@ class MainReducerTest {
 
     @Test
     fun loadedTopicsFillTheOpenDialog() {
-        val open = state.copy(topicsDialog = TopicsDialogState.Loading(1, "compose", DESCRIPTION))
+        val open = state.copy(
+            topicsDialog = TopicsDialogState.Loading(1, "compose", DESCRIPTION, STARS, FORKS)
+        )
 
         val reduction = MainReducer.reduce(
             open,
@@ -152,6 +166,8 @@ class MainReducerTest {
                     repoId = 1,
                     repoName = "compose",
                     repoDescription = DESCRIPTION,
+                    repoStars = STARS,
+                    repoForks = FORKS,
                     topics = listOf("android", "paging")
                 )
             ),
@@ -161,7 +177,9 @@ class MainReducerTest {
 
     @Test
     fun topicsOfAnotherRepoDoNotReplaceTheOpenDialog() {
-        val open = state.copy(topicsDialog = TopicsDialogState.Loading(1, "compose", DESCRIPTION))
+        val open = state.copy(
+            topicsDialog = TopicsDialogState.Loading(1, "compose", DESCRIPTION, STARS, FORKS)
+        )
 
         // the load of a dialog that was closed or replaced with another repo is still on its way
         assertEquals(
@@ -173,12 +191,16 @@ class MainReducerTest {
 
     @Test
     fun failedTopicsAreReportedInTheOpenDialog() {
-        val open = state.copy(topicsDialog = TopicsDialogState.Loading(1, "compose", DESCRIPTION))
+        val open = state.copy(
+            topicsDialog = TopicsDialogState.Loading(1, "compose", DESCRIPTION, STARS, FORKS)
+        )
 
         val reduction = MainReducer.reduce(open, MainIntent.TopicsLoadFailed(1))
 
         assertEquals(
-            open.copy(topicsDialog = TopicsDialogState.Failed(1, "compose", DESCRIPTION)),
+            open.copy(
+                topicsDialog = TopicsDialogState.Failed(1, "compose", DESCRIPTION, STARS, FORKS)
+            ),
             reduction.state
         )
     }
@@ -190,6 +212,8 @@ class MainReducerTest {
                 repoId = 1,
                 repoName = "compose",
                 repoDescription = DESCRIPTION,
+                repoStars = STARS,
+                repoForks = FORKS,
                 topics = listOf("android")
             )
         )
@@ -207,6 +231,8 @@ class MainReducerTest {
                 repoId = 1,
                 repoName = "compose",
                 repoDescription = DESCRIPTION,
+                repoStars = STARS,
+                repoForks = FORKS,
                 topics = listOf("kotlin")
             )
         )
@@ -231,6 +257,8 @@ class MainReducerTest {
                 repoId = 1,
                 repoName = "compose",
                 repoDescription = DESCRIPTION,
+                repoStars = STARS,
+                repoForks = FORKS,
                 topics = listOf("android")
             )
         )
@@ -245,19 +273,31 @@ class MainReducerTest {
     /** Builds the query the way the screen does: anything that comes in is canonical. */
     private fun query(raw: String): SearchQuery = SearchQuery.of(raw)
 
-    /** A result of a search, the dialog of its topics needs its id, name and description. */
-    private fun repo(id: Long, name: String, description: String? = null) = Repo(
+    /**
+     * A result of a search, the dialog of its topics needs its id, name, description and counts.
+     */
+    private fun repo(
+        id: Long,
+        name: String,
+        description: String? = null,
+        stars: Int = 1,
+        forks: Int = 1
+    ) = Repo(
         id = id,
         name = name,
         description = description,
         url = "https://github.com/alxiw/$name",
-        stars = 1,
-        forks = 1,
+        stars = stars,
+        forks = forks,
         language = null
     )
 
     private companion object {
         /** The description the dialog of the topics shows under the name of the repo. */
         const val DESCRIPTION = "A compose sample"
+
+        /** The counts the dialog of the topics shows in full under the description. */
+        const val STARS = 468_224
+        const val FORKS = 12_345
     }
 }

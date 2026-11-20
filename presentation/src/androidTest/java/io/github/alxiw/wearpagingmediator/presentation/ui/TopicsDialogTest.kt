@@ -4,6 +4,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasScrollToIndexAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
@@ -28,12 +29,14 @@ class TopicsDialogTest {
     private val repoName = "alxiw/wear-paging-mediator"
     private val description = "A Wear OS search sample that pages the results of GitHub through " +
         "a Room cache, so the cached results of a query are shown at once"
+    private val stars = 468_224
+    private val forks = 12_345
 
     @Test
     fun loadingDialogShowsTheRepoTheDescriptionAndTheLoadingState() {
         rule.setWearContent {
             TopicsDialog(
-                state = TopicsDialogState.Loading(1, repoName, description),
+                state = TopicsDialogState.Loading(1, repoName, description, stars, forks),
                 onDismiss = {},
                 onTopicClick = {}
             )
@@ -52,6 +55,8 @@ class TopicsDialogTest {
                     repoId = 1,
                     repoName = repoName,
                     repoDescription = description,
+                    repoStars = stars,
+                    repoForks = forks,
                     topics = listOf("android", "paging", "wear-os")
                 ),
                 onDismiss = {},
@@ -69,6 +74,32 @@ class TopicsDialogTest {
     }
 
     @Test
+    fun dialogShowsTheStarsAndForksInFullBetweenTheDescriptionAndTheTopics() {
+        rule.setWearContent {
+            TopicsDialog(
+                state = TopicsDialogState.Loaded(
+                    repoId = 1,
+                    repoName = repoName,
+                    repoDescription = description,
+                    repoStars = 1_468_224,
+                    repoForks = 82_345,
+                    topics = listOf("android")
+                ),
+                onDismiss = {},
+                onTopicClick = {}
+            )
+        }
+
+        rule.awaitNode(hasText(description))
+        // the card of the list abbreviates the counts with K and M, the dialog never does
+        rule.onNodeWithText("1468224").assertIsDisplayed()
+        rule.onNodeWithText("82345").assertIsDisplayed()
+        rule.onNodeWithText("1M").assertDoesNotExist()
+        rule.onNodeWithContentDescription(label(R.string.stars)).assertExists()
+        rule.onNodeWithContentDescription(label(R.string.forks)).assertExists()
+    }
+
+    @Test
     fun loadedDialogWithoutTopicsSaysThereAreNone() {
         rule.setWearContent {
             TopicsDialog(
@@ -76,6 +107,8 @@ class TopicsDialogTest {
                     repoId = 1,
                     repoName = repoName,
                     repoDescription = description,
+                    repoStars = stars,
+                    repoForks = forks,
                     topics = emptyList()
                 ),
                 onDismiss = {},
@@ -91,7 +124,7 @@ class TopicsDialogTest {
     fun failedDialogReportsTheFailure() {
         rule.setWearContent {
             TopicsDialog(
-                state = TopicsDialogState.Failed(1, repoName, description),
+                state = TopicsDialogState.Failed(1, repoName, description, stars, forks),
                 onDismiss = {},
                 onTopicClick = {}
             )
@@ -102,13 +135,15 @@ class TopicsDialogTest {
     }
 
     @Test
-    fun dialogOfRepoWithoutDescriptionShowsTheTopicsOnly() {
+    fun dialogOfRepoWithoutDescriptionShowsTheStatsAndTheTopics() {
         rule.setWearContent {
             TopicsDialog(
                 state = TopicsDialogState.Loaded(
                     repoId = 1,
                     repoName = repoName,
                     repoDescription = null,
+                    repoStars = stars,
+                    repoForks = forks,
                     topics = listOf("paging")
                 ),
                 onDismiss = {},
@@ -117,6 +152,7 @@ class TopicsDialogTest {
         }
 
         rule.awaitNode(hasText(repoName))
+        rule.onNodeWithText("468224").assertIsDisplayed()
         rule.onNodeWithText("paging").assertIsDisplayed()
     }
 
@@ -130,6 +166,8 @@ class TopicsDialogTest {
                     repoId = 1,
                     repoName = repoName,
                     repoDescription = null,
+                    repoStars = stars,
+                    repoForks = forks,
                     topics = listOf("android", "paging")
                 ),
                 onDismiss = {},

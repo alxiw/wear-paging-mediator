@@ -4,10 +4,12 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /**
- * Guards the abbreviated counts of the cards and the star band labels, see [CountFormatter].
+ * Guards the counts of the cards and the star band labels, see [CountFormatter].
  *
  * A card and the label above its band must read the same count: a result with 468224 stars is
- * "468K" both on the card and in "≤ 500K stars", not "468224" on one of them.
+ * "468K" both on the card and in "≤ 500K stars", not "468224" on one of them. The dialog of the
+ * topics is the other way around: it shows the exact count, so the number behind the abbreviation
+ * stays visible.
  */
 class CountFormatterTest {
 
@@ -30,6 +32,15 @@ class CountFormatterTest {
     fun millionsAreAbbreviatedWithM() {
         assertEquals("1M", CountFormatter.format(1_000_000))
         assertEquals("2M", CountFormatter.format(2_500_000))
+    }
+
+    @Test
+    fun exactCountsAreKeptInFull() {
+        assertEquals("0", CountFormatter.formatFull(0))
+        assertEquals("999", CountFormatter.formatFull(999))
+        assertEquals("1000", CountFormatter.formatFull(1_000))
+        assertEquals("468224", CountFormatter.formatFull(468_224))
+        assertEquals("2500000", CountFormatter.formatFull(2_500_000))
     }
 
     @Test

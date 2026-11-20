@@ -230,6 +230,8 @@ private fun MainScreenTopicsPreview() {
                     repoName = "alxiw/wear-paging-mediator",
                     repoDescription = "A Wear OS search sample that pages the results of GitHub " +
                         "through a Room cache, so the cached results of a query are shown at once",
+                    repoStars = 468_224,
+                    repoForks = 12_345,
                     topics = listOf("android", "paging", "wear-os")
                 )
             ),
