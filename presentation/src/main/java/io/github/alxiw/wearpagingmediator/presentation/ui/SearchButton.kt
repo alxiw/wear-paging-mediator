@@ -29,10 +29,14 @@ import io.github.alxiw.wearpagingmediator.presentation.R
 fun SearchButton(
     query: String,
     onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
+    onLongClickLabel: String? = null,
     modifier: Modifier = Modifier
 ) {
     Button(
         onClick = onClick,
+        onLongClick = onLongClick,
+        onLongClickLabel = onLongClickLabel,
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 24.dp),

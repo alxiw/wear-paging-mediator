@@ -24,6 +24,7 @@ import androidx.wear.compose.foundation.lazy.rememberTransformingLazyColumnState
 import androidx.wear.compose.material3.AppScaffold
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.ScreenScaffold
+import io.github.alxiw.wearpagingmediator.domain.model.RecentQuery
 import io.github.alxiw.wearpagingmediator.domain.model.SearchQuery
 import io.github.alxiw.wearpagingmediator.domain.model.Repo
 import io.github.alxiw.wearpagingmediator.presentation.Constants.DEFAULT_QUERY
@@ -34,10 +35,12 @@ import io.github.alxiw.wearpagingmediator.presentation.model.MainEffect
 import io.github.alxiw.wearpagingmediator.presentation.model.MainIntent
 import io.github.alxiw.wearpagingmediator.presentation.model.MainState
 import io.github.alxiw.wearpagingmediator.presentation.model.ListModel
+import io.github.alxiw.wearpagingmediator.presentation.model.RecentQueriesDialogState
 import io.github.alxiw.wearpagingmediator.presentation.model.TopicsDialogState
 import io.github.alxiw.wearpagingmediator.presentation.ui.preview.PreviewLoadStates
 import io.github.alxiw.wearpagingmediator.presentation.ui.preview.WearPreview
 import io.github.alxiw.wearpagingmediator.presentation.ui.preview.rememberPreviewPagingItems
+import java.time.Instant
 
 /**
  * The connected part of the screen: it owns the state holder, the launcher of the voice panel and
@@ -100,6 +103,7 @@ fun MainScreen(
         state = state,
         repos = repos,
         onSearchClick = { launcher.launch(searchLabel) },
+        onSearchLongClick = { viewModel.onIntent(MainIntent.RecentQueriesRequested) },
         onRepoClick = { repo ->
             Log.d("HELLO", "Repo ${repo.name} clicked")
             viewModel.onIntent(MainIntent.RepoClicked(repo))
@@ -107,6 +111,10 @@ fun MainScreen(
         onRepoLongClick = { repo -> viewModel.onIntent(MainIntent.RepoLongClicked(repo)) },
         onTopicsDismiss = { viewModel.onIntent(MainIntent.TopicsDialogDismissed) },
         onTopicClick = { topic -> viewModel.onIntent(MainIntent.TopicClicked(topic)) },
+        onRecentQueriesDismiss = {
+            viewModel.onIntent(MainIntent.RecentQueriesDialogDismissed)
+        },
+        onRecentQueryClick = { query -> viewModel.onIntent(MainIntent.RecentQueryClicked(query)) },
         onRetry = repos::retry,
         listState = listState
     )
@@ -121,10 +129,13 @@ internal fun MainScreenContent(
     state: MainState,
     repos: LazyPagingItems<ListModel>,
     onSearchClick: () -> Unit,
+    onSearchLongClick: () -> Unit,
     onRepoClick: (Repo) -> Unit,
     onRepoLongClick: (Repo) -> Unit,
     onTopicsDismiss: () -> Unit,
     onTopicClick: (String) -> Unit,
+    onRecentQueriesDismiss: () -> Unit,
+    onRecentQueryClick: (String) -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
     listState: TransformingLazyColumnState = rememberTransformingLazyColumnState()
@@ -133,7 +144,8 @@ internal fun MainScreenContent(
     val loadState = repos.loadState
     val notice = ListStatus.notice(loadState.refresh, loadState.append, repos.itemCount)
     val footer = ListStatus.footer(loadState.refresh, loadState.append, repos.itemCount)
-    val linkLabel = stringResource(R.string.open_link_label)
+    val linkLabel = stringResource(R.string.topics_label)
+    val recentQueriesLabel = stringResource(R.string.recent_queries_label)
 
     AppScaffold(modifier = modifier) {
         ScreenScaffold(
@@ -144,11 +156,13 @@ internal fun MainScreenContent(
                 contentPadding = contentPadding,
                 modifier = Modifier.fillMaxSize()
             ) {
-                // search button
+                // search button: a tap opens the voice panel, a long press the recent queries
                 item {
                     SearchButton(
                         query = state.query.value,
-                        onClick = onSearchClick
+                        onClick = onSearchClick,
+                        onLongClick = onSearchLongClick,
+                        onLongClickLabel = recentQueriesLabel
                     )
                 }
 
@@ -191,6 +205,11 @@ internal fun MainScreenContent(
             onDismiss = onTopicsDismiss,
             onTopicClick = onTopicClick
         )
+        RecentQueriesDialog(
+            state = state.recentQueriesDialog,
+            onDismiss = onRecentQueriesDismiss,
+            onQueryClick = onRecentQueryClick
+        )
     }
 }
 
@@ -209,10 +228,13 @@ private fun MainScreenLoadedPreview() {
             state = MainState(query = PREVIEW_QUERY),
             repos = rememberPreviewPagingItems(),
             onSearchClick = {},
+            onSearchLongClick = {},
             onRepoClick = {},
             onRepoLongClick = {},
             onTopicsDismiss = {},
             onTopicClick = {},
+            onRecentQueriesDismiss = {},
+            onRecentQueryClick = {},
             onRetry = {}
         )
     }
@@ -237,10 +259,47 @@ private fun MainScreenTopicsPreview() {
             ),
             repos = rememberPreviewPagingItems(),
             onSearchClick = {},
+            onSearchLongClick = {},
             onRepoClick = {},
             onRepoLongClick = {},
             onTopicsDismiss = {},
             onTopicClick = {},
+            onRecentQueriesDismiss = {},
+            onRecentQueryClick = {},
+            onRetry = {}
+        )
+    }
+}
+
+@WearPreview
+@Composable
+private fun MainScreenRecentQueriesPreview() {
+    WearScreenPreview {
+        MainScreenContent(
+            state = MainState(
+                query = PREVIEW_QUERY,
+                recentQueriesDialog = RecentQueriesDialogState.Loaded(
+                    queries = listOf(
+                        RecentQuery(
+                            query = SearchQuery.of("compose"),
+                            accessedAt = Instant.parse("2026-10-21T17:16:56Z")
+                        ),
+                        RecentQuery(
+                            query = SearchQuery.of("android wear"),
+                            accessedAt = Instant.parse("2026-10-20T09:05:43Z")
+                        )
+                    )
+                )
+            ),
+            repos = rememberPreviewPagingItems(),
+            onSearchClick = {},
+            onSearchLongClick = {},
+            onRepoClick = {},
+            onRepoLongClick = {},
+            onTopicsDismiss = {},
+            onTopicClick = {},
+            onRecentQueriesDismiss = {},
+            onRecentQueryClick = {},
             onRetry = {}
         )
     }
@@ -257,10 +316,13 @@ private fun MainScreenLoadingPreview() {
                 loadStates = PreviewLoadStates.loading
             ),
             onSearchClick = {},
+            onSearchLongClick = {},
             onRepoClick = {},
             onRepoLongClick = {},
             onTopicsDismiss = {},
             onTopicClick = {},
+            onRecentQueriesDismiss = {},
+            onRecentQueryClick = {},
             onRetry = {}
         )
     }
@@ -277,10 +339,13 @@ private fun MainScreenEmptyPreview() {
                 loadStates = PreviewLoadStates.endOfList
             ),
             onSearchClick = {},
+            onSearchLongClick = {},
             onRepoClick = {},
             onRepoLongClick = {},
             onTopicsDismiss = {},
             onTopicClick = {},
+            onRecentQueriesDismiss = {},
+            onRecentQueryClick = {},
             onRetry = {}
         )
     }
@@ -294,10 +359,13 @@ private fun MainScreenRefreshErrorPreview() {
             state = MainState(query = PREVIEW_QUERY),
             repos = rememberPreviewPagingItems(loadStates = PreviewLoadStates.refreshError),
             onSearchClick = {},
+            onSearchLongClick = {},
             onRepoClick = {},
             onRepoLongClick = {},
             onTopicsDismiss = {},
             onTopicClick = {},
+            onRecentQueriesDismiss = {},
+            onRecentQueryClick = {},
             onRetry = {}
         )
     }

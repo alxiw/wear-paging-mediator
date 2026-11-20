@@ -130,7 +130,7 @@ class TopicsDialogTest {
             )
         }
 
-        rule.awaitNode(hasText(label(R.string.error_topics)))
+        rule.awaitNode(hasText(label(R.string.topics_error)))
         rule.onNodeWithText(description).assertIsDisplayed()
     }
 

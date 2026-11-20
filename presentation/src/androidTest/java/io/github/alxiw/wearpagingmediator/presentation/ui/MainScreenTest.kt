@@ -19,8 +19,10 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.paging.PagingSource
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.wear.compose.material3.MaterialTheme
+import io.github.alxiw.wearpagingmediator.domain.GetRecentQueriesUseCase
 import io.github.alxiw.wearpagingmediator.domain.GetRepoTopicsUseCase
 import io.github.alxiw.wearpagingmediator.domain.GetReposFlowUseCase
+import io.github.alxiw.wearpagingmediator.domain.model.RecentQuery
 import io.github.alxiw.wearpagingmediator.domain.model.SearchQuery
 import io.github.alxiw.wearpagingmediator.presentation.Constants.DEFAULT_QUERY
 import io.github.alxiw.wearpagingmediator.presentation.MainViewModel
@@ -40,7 +42,9 @@ import io.github.alxiw.wearpagingmediator.presentation.testing.page
 import io.github.alxiw.wearpagingmediator.presentation.testing.pluralLabel
 import io.github.alxiw.wearpagingmediator.presentation.testing.repo
 import io.github.alxiw.wearpagingmediator.presentation.util.CountFormatter
+import io.github.alxiw.wearpagingmediator.presentation.util.TimestampFormatter
 import java.io.IOException
+import java.time.Instant
 import kotlinx.coroutines.CompletableDeferred
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -306,6 +310,73 @@ class MainScreenTest {
 
     // endregion
 
+    // region recent queries
+
+    @Test
+    fun longPressOnTheSearchButtonShowsTheRecentQueries() {
+        val usedAt = Instant.parse("2026-10-21T17:16:56Z")
+        val recent = RecentQuery(query("kotlin"), usedAt)
+        val repository = FakeRepository().apply { recentQueries = { listOf(recent) } }
+
+        showScreen(repository = repository)
+        rule.onNodeWithText(DEFAULT_QUERY.value).performTouchInput { longClick() }
+
+        rule.awaitNode(hasText("kotlin"))
+        rule.onNodeWithText(label(R.string.recent_queries_title, RecentQuery.MAX_CACHED_QUERIES))
+            .assertIsDisplayed()
+        // every entry says when its query was used
+        rule.onNodeWithText(TimestampFormatter.format(usedAt)).assertIsDisplayed()
+        // the queries are read when the dialog is opened, not before
+        assertEquals(1, repository.recentQueriesRequests)
+    }
+
+    @Test
+    fun dismissedRecentQueriesDialogGoesAway() {
+        val usedAt = Instant.parse("2026-10-21T17:16:56Z")
+        val repository = FakeRepository().apply {
+            recentQueries = { listOf(RecentQuery(query("kotlin"), usedAt)) }
+        }
+
+        showScreen(repository = repository)
+        rule.onNodeWithText(DEFAULT_QUERY.value).performTouchInput { longClick() }
+        rule.awaitNode(hasText("kotlin"))
+
+        rule.runOnUiThread { viewModel.onIntent(MainIntent.RecentQueriesDialogDismissed) }
+        // the dialog fades out before it leaves the tree
+        rule.mainClock.advanceTimeBy(1_000)
+        rule.waitForIdle()
+
+        rule.onNodeWithText("kotlin").assertDoesNotExist()
+    }
+
+    @Test
+    fun tappedRecentQuerySearchesForItAndTheDialogGoesAway() {
+        val kotlinRepo = repo(id = 10, name = "kotlin-repo")
+        val usedAt = Instant.parse("2026-10-21T17:16:56Z")
+        val repository = FakeRepository().apply {
+            recentQueries = { listOf(RecentQuery(query("kotlin"), usedAt)) }
+            load = { query, _ -> page(if (query == "kotlin") listOf(kotlinRepo) else REPOS) }
+        }
+
+        showScreen(repository = repository)
+        rule.onNodeWithText(DEFAULT_QUERY.value).performTouchInput { longClick() }
+        rule.awaitNode(hasText("kotlin"))
+        rule.onNodeWithText("kotlin").performClick()
+
+        rule.awaitCondition { repository.queries == listOf(DEFAULT_QUERY, query("kotlin")) }
+        // the dialog fades out before it leaves the tree
+        rule.mainClock.advanceTimeBy(1_000)
+        rule.waitForIdle()
+
+        // the query is the query of the results now: the search button shows it and the results
+        // are its own, exactly as after a tap on a topic
+        rule.onNodeWithText("kotlin").assertIsDisplayed()
+        scrollTo(kotlinRepo.name)
+        assertEquals(0, rule.onAllNodes(hasText(FIRST_REPO.name)).fetchSemanticsNodes().size)
+    }
+
+    // endregion
+
     // region navigation
 
     @Test
@@ -487,6 +558,7 @@ class MainScreenTest {
         viewModel = MainViewModel(
             GetReposFlowUseCase(repository),
             GetRepoTopicsUseCase(repository),
+            GetRecentQueriesUseCase(repository),
             SavedStateHandle()
         )
         context = RecordingContext(rule.activity, startActivityError)

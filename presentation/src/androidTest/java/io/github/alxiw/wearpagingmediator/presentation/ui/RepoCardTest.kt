@@ -58,7 +58,7 @@ class RepoCardTest {
                 repo = FIRST_REPO,
                 onClick = { clicks++ },
                 onLongClick = { longClicks++ },
-                onLongClickLabel = label(R.string.open_link_label)
+                onLongClickLabel = label(R.string.topics_label)
             )
         }
 

@@ -93,7 +93,7 @@ fun TopicsDialog(
                     }
                 }
                 is TopicsDialogState.Failed -> item {
-                    Text(text = stringResource(R.string.error_topics))
+                    Text(text = stringResource(R.string.topics_error))
                 }
             }
         }

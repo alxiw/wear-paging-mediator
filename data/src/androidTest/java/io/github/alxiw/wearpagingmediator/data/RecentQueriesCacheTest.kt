@@ -12,6 +12,7 @@ import io.github.alxiw.wearpagingmediator.data.local.model.RepoTopicCrossRef
 import io.github.alxiw.wearpagingmediator.data.local.model.SearchQueryResultEntity
 import io.github.alxiw.wearpagingmediator.data.remote.api.GitHubApi
 import io.github.alxiw.wearpagingmediator.data.remote.model.RepoSearchResponse
+import io.github.alxiw.wearpagingmediator.domain.model.RecentQuery
 import io.github.alxiw.wearpagingmediator.domain.model.SearchQuery
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -28,13 +29,13 @@ import java.io.IOException
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
- * Guards the size of the Room cache: only the results of the [RecentQueriesCache.MAX_CACHED_QUERIES]
+ * Guards the size of the Room cache: only the results of the [RecentQuery.MAX_CACHED_QUERIES]
  * most recently opened queries stay, the least recently opened one is deleted together with the
  * repositories and the topics no other query references.
  *
  * The number of queries used here is derived from the constant instead of being written down: every
  * test fills the cache exactly up to the limit and, when it expects an eviction, opens one query
- * more. Growing [RecentQueriesCache.MAX_CACHED_QUERIES] does not invalidate these tests.
+ * more. Growing [RecentQuery.MAX_CACHED_QUERIES] does not invalidate these tests.
  */
 @RunWith(AndroidJUnit4::class)
 class RecentQueriesCacheTest {
@@ -151,6 +152,22 @@ class RecentQueriesCacheTest {
         assertEquals(listOf(REPEATED_QUERY), cachedQueries())
     }
 
+    @Test
+    fun recentQueriesAreOfferedTheMostRecentlyUsedFirst() = runBlocking {
+        cacheQueriesWithinTheLimit()
+        val repository = ReposRepository(OfflineGitHubApi(), database, cache)
+
+        val recent = repository.getRecentQueries()
+
+        assertEquals(QUERIES_WITHIN_THE_LIMIT.reversed(), recent.map { it.query.value })
+        recent.zipWithNext().forEach { (newer, older) ->
+            assertTrue(
+                "the query used later has to come first",
+                newer.accessedAt.isAfter(older.accessedAt)
+            )
+        }
+    }
+
     /** Caches [MAX_CACHED_QUERIES] queries, one repository each, and opens them in order. */
     private suspend fun cacheQueriesWithinTheLimit() {
         QUERIES_WITHIN_THE_LIMIT.forEachIndexed { index, query ->
@@ -214,7 +231,7 @@ class RecentQueriesCacheTest {
         const val TIMEOUT_MILLIS = 10_000L
 
         /** The value under test: everything below is derived from it. */
-        const val MAX_CACHED_QUERIES = RecentQueriesCache.MAX_CACHED_QUERIES
+        const val MAX_CACHED_QUERIES = RecentQuery.MAX_CACHED_QUERIES
 
         /** Exactly fills the cache, the first one is the least recently opened query. */
         val QUERIES_WITHIN_THE_LIMIT = (1..MAX_CACHED_QUERIES).map { "query $it" }

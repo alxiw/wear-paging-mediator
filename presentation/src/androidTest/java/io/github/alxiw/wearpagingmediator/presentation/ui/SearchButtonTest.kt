@@ -2,9 +2,11 @@ package io.github.alxiw.wearpagingmediator.presentation.ui
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import io.github.alxiw.wearpagingmediator.presentation.Constants.DEFAULT_QUERY
 import io.github.alxiw.wearpagingmediator.presentation.R
@@ -23,6 +25,7 @@ class SearchButtonTest {
     val rule = createComposeRule()
 
     private var clicks = 0
+    private var longClicks = 0
 
     @Test
     fun buttonShowsTheQueryAndAsksForANewOne() {
@@ -36,6 +39,23 @@ class SearchButtonTest {
         rule.onNodeWithText("kotlin").performClick()
 
         assertEquals(1, clicks)
+    }
+
+    @Test
+    fun longPressAsksForTheRecentQueries() {
+        rule.setWearContent {
+            SearchButton(
+                query = "kotlin",
+                onClick = { clicks++ },
+                onLongClick = { longClicks++ },
+                onLongClickLabel = label(R.string.recent_queries_label)
+            )
+        }
+
+        rule.onNodeWithText("kotlin").performTouchInput { longClick() }
+
+        assertEquals(1, longClicks)
+        assertEquals(0, clicks)
     }
 
     @Test

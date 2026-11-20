@@ -8,6 +8,7 @@ import androidx.paging.cachedIn
 import androidx.paging.insertSeparators
 import androidx.paging.map
 import dagger.hilt.android.lifecycle.HiltViewModel
+import io.github.alxiw.wearpagingmediator.domain.GetRecentQueriesUseCase
 import io.github.alxiw.wearpagingmediator.domain.GetRepoTopicsUseCase
 import io.github.alxiw.wearpagingmediator.domain.GetReposFlowUseCase
 import io.github.alxiw.wearpagingmediator.domain.model.SearchQuery
@@ -45,6 +46,7 @@ import javax.inject.Inject
 class MainViewModel @Inject constructor(
     private val getReposFlow: GetReposFlowUseCase,
     private val getRepoTopics: GetRepoTopicsUseCase,
+    private val getRecentQueries: GetRecentQueriesUseCase,
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -75,6 +77,9 @@ class MainViewModel @Inject constructor(
     /** The load of the topics of the open dialog, cancelled when the dialog is closed. */
     private var topicsJob: Job? = null
 
+    /** The load of the recent queries, cancelled when their dialog is closed. */
+    private var recentQueriesJob: Job? = null
+
     val pagingDataFlow: Flow<PagingData<ListModel>> = state
         .map { it.query }
         .distinctUntilChanged()
@@ -92,7 +97,29 @@ class MainViewModel @Inject constructor(
         when (intent) {
             is MainIntent.RepoClicked -> loadTopics(intent.repo.id)
             is MainIntent.TopicsDialogDismissed, is MainIntent.TopicClicked -> topicsJob?.cancel()
+            is MainIntent.RecentQueriesRequested -> loadRecentQueries()
+            is MainIntent.RecentQueriesDialogDismissed,
+            is MainIntent.RecentQueryClicked -> recentQueriesJob?.cancel()
             else -> Unit
+        }
+    }
+
+    /**
+     * The queries are read every time the dialog is opened, so a query that was searched while the
+     * dialog was closed shows up in it. A load of a closed dialog is dropped by the reducer.
+     */
+    private fun loadRecentQueries() {
+        recentQueriesJob?.cancel()
+        recentQueriesJob = viewModelScope.launch {
+            val recent = try {
+                getRecentQueries()
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (error: Exception) {
+                onIntent(MainIntent.RecentQueriesLoadFailed)
+                return@launch
+            }
+            onIntent(MainIntent.RecentQueriesLoaded(recent))
         }
     }
 

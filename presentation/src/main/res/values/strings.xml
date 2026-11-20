@@ -14,8 +14,13 @@
         <item quantity="one">%1$s star</item>
         <item quantity="other">%1$s stars</item>
     </plurals>
-    <string name="open_link_label">Open on GitHub</string>
+    <string name="topics_label">Show topics</string>
     <string name="topics_loading">Loading topics…</string>
     <string name="topics_empty">No topics</string>
-    <string name="error_topics">Couldn\'t load topics</string>
+    <string name="topics_error">Couldn\'t load topics</string>
+    <string name="recent_queries_label">Show recent queries</string>
+    <string name="recent_queries_loading">Loading recent queries…</string>
+    <string name="recent_queries_empty">No recent queries</string>
+    <string name="recent_queries_error">Couldn\'t load recent queries</string>
+    <string name="recent_queries_title">Last %1$d used queries</string>
 </resources>

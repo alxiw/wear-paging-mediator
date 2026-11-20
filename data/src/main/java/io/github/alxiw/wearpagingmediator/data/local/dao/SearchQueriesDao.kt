@@ -22,6 +22,14 @@ internal interface SearchQueriesDao {
     @Query("SELECT MAX(accessed_at) FROM search_queries")
     suspend fun lastAccessedAt(): Long?
 
+    /** The [limit] most recently used queries, the most recently used one first. */
+    @Query("""
+        SELECT * FROM search_queries
+        ORDER BY accessed_at DESC, `query` DESC
+        LIMIT :limit
+    """)
+    suspend fun recentQueries(limit: Int): List<SearchQueryEntity>
+
     @Query("DELETE FROM search_queries WHERE `query` IN (:queries)")
     suspend fun deleteQueries(queries: List<String>)
 

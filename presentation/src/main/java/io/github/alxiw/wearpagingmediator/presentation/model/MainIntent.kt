@@ -1,5 +1,6 @@
 package io.github.alxiw.wearpagingmediator.presentation.model
 
+import io.github.alxiw.wearpagingmediator.domain.model.RecentQuery
 import io.github.alxiw.wearpagingmediator.domain.model.SearchQuery
 import io.github.alxiw.wearpagingmediator.domain.model.Repo
 
@@ -48,4 +49,23 @@ sealed interface MainIntent {
 
     /** The topics of [repoId] could not be read, the result of [RepoClicked]. */
     data class TopicsLoadFailed(val repoId: Long) : MainIntent
+
+    /** The user long-pressed the search button: show the most recently used queries. */
+    data object RecentQueriesRequested : MainIntent
+
+    /** The user dismissed the dialog with the recent queries. */
+    data object RecentQueriesDialogDismissed : MainIntent
+
+    /**
+     * The user tapped [query] in the dialog with the recent queries: the dialog is closed and
+     * [query] becomes the query of the results, exactly as if a topic had been tapped. The query is
+     * raw text, so the reducer canonicalizes it the same way it canonicalizes a submitted one.
+     */
+    data class RecentQueryClicked(val query: String) : MainIntent
+
+    /** The recent queries were read, the result of [RecentQueriesRequested]. */
+    data class RecentQueriesLoaded(val queries: List<RecentQuery>) : MainIntent
+
+    /** The recent queries could not be read, the result of [RecentQueriesRequested]. */
+    data object RecentQueriesLoadFailed : MainIntent
 }

@@ -10,6 +10,7 @@ import io.github.alxiw.wearpagingmediator.data.local.db.GitHubDatabase
 import io.github.alxiw.wearpagingmediator.data.mapper.RepoEntityMapper
 import io.github.alxiw.wearpagingmediator.data.remote.api.GitHubApi
 import io.github.alxiw.wearpagingmediator.domain.Repository
+import io.github.alxiw.wearpagingmediator.domain.model.RecentQuery
 import io.github.alxiw.wearpagingmediator.domain.model.SearchQuery
 import io.github.alxiw.wearpagingmediator.domain.model.Repo
 import kotlinx.coroutines.CancellationException
@@ -17,6 +18,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import java.time.Instant
 import javax.inject.Inject
 
 internal class ReposRepository @Inject constructor(
@@ -61,6 +63,20 @@ internal class ReposRepository @Inject constructor(
 
     override suspend fun getRepoTopics(repoId: Long): List<String> =
         database.reposDao().topicsOf(repoId)
+
+    /**
+     * The cache keeps more queries than the screen caches in memory, so the dialog can always
+     * show the full number of the most recently used ones.
+     */
+    override suspend fun getRecentQueries(): List<RecentQuery> =
+        database.searchQueriesDao()
+            .recentQueries(RecentQuery.MAX_CACHED_QUERIES)
+            .map { entity ->
+                RecentQuery(
+                    query = SearchQuery.of(entity.query),
+                    accessedAt = Instant.ofEpochMilli(entity.accessedAt)
+                )
+            }
 
     companion object {
         const val NETWORK_PAGE_SIZE = 30

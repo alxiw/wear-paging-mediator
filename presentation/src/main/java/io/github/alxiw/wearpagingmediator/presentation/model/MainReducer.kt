@@ -1,5 +1,6 @@
 package io.github.alxiw.wearpagingmediator.presentation.model
 
+import io.github.alxiw.wearpagingmediator.domain.model.RecentQuery
 import io.github.alxiw.wearpagingmediator.domain.model.SearchQuery
 
 /** The result of handling an intent: the new state and the one-off actions it asks for. */
@@ -38,6 +39,15 @@ internal object MainReducer {
         is MainIntent.TopicClicked -> reduceTopicClicked(state, intent.topic)
         is MainIntent.TopicsLoaded -> reduceTopicsLoaded(state, intent)
         is MainIntent.TopicsLoadFailed -> reduceTopicsFailed(state, intent)
+        is MainIntent.RecentQueriesRequested -> Reduction(
+            state.copy(recentQueriesDialog = RecentQueriesDialogState.Loading)
+        )
+        is MainIntent.RecentQueriesDialogDismissed -> Reduction(
+            state.copy(recentQueriesDialog = null)
+        )
+        is MainIntent.RecentQueryClicked -> reduceRecentQueryClicked(state, intent.query)
+        is MainIntent.RecentQueriesLoaded -> reduceRecentQueriesLoaded(state, intent.queries)
+        is MainIntent.RecentQueriesLoadFailed -> reduceRecentQueriesFailed(state)
     }
 
     /**
@@ -63,6 +73,28 @@ internal object MainReducer {
      */
     private fun reduceTopicClicked(state: MainState, topic: String): Reduction =
         reduceSubmission(state.copy(topicsDialog = null), topic)
+
+    /**
+     * A tapped recent query is a search as well: the dialog is closed and the query goes through
+     * the rules of a submitted search, so tapping the query that is already searched only refreshes
+     * the results that are on screen.
+     */
+    private fun reduceRecentQueryClicked(state: MainState, query: String): Reduction =
+        reduceSubmission(state.copy(recentQueriesDialog = null), query)
+
+    /** A result of a load is applied only to the dialog it was started for. */
+    private fun reduceRecentQueriesLoaded(
+        state: MainState,
+        queries: List<RecentQuery>
+    ): Reduction {
+        if (state.recentQueriesDialog != RecentQueriesDialogState.Loading) return Reduction(state)
+        return Reduction(state.copy(recentQueriesDialog = RecentQueriesDialogState.Loaded(queries)))
+    }
+
+    private fun reduceRecentQueriesFailed(state: MainState): Reduction {
+        if (state.recentQueriesDialog != RecentQueriesDialogState.Loading) return Reduction(state)
+        return Reduction(state.copy(recentQueriesDialog = RecentQueriesDialogState.Failed))
+    }
 
     private fun reduceScroll(state: MainState, query: SearchQuery): Reduction = Reduction(
         state.copy(

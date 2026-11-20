@@ -3,11 +3,13 @@ package io.github.alxiw.wearpagingmediator.data
 import androidx.room.withTransaction
 import io.github.alxiw.wearpagingmediator.data.local.db.GitHubDatabase
 import io.github.alxiw.wearpagingmediator.data.local.model.SearchQueryEntity
+import io.github.alxiw.wearpagingmediator.domain.model.RecentQuery
 import javax.inject.Inject
 
 /**
- * Bounds the cache: the results of at most [MAX_CACHED_QUERIES] queries are kept, the least
- * recently used ones are deleted together with the repositories no other query references.
+ * Bounds the cache: the results of at most [RecentQuery.MAX_CACHED_QUERIES] queries are kept,
+ * the least recently used ones are deleted together with the repositories no other query
+ * references.
  *
  * A query is used when it is opened, not when GitHub answers: the cached results are shown even
  * without a network, and a failed refresh must not make a query that was just looked at look like
@@ -28,7 +30,7 @@ internal class RecentQueriesCache @Inject constructor(
             )
             queries.upsert(SearchQueryEntity(query = query, accessedAt = accessedAt))
 
-            val evicted = queries.queriesBeyond(MAX_CACHED_QUERIES)
+            val evicted = queries.queriesBeyond(RecentQuery.MAX_CACHED_QUERIES)
             if (evicted.isEmpty()) return@withTransaction
             evicted.chunked(MAX_QUERIES_PER_STATEMENT).forEach { chunk ->
                 database.reposDao().deleteResultsForQueries(chunk)
@@ -41,13 +43,6 @@ internal class RecentQueriesCache @Inject constructor(
     }
 
     companion object {
-        /**
-         * Must stay above the in-memory cache of `MainViewModel` (3 queries): a query that is still
-         * shown from memory is never the least recently used one here, so it is not evicted while
-         * its window is alive.
-         */
-        const val MAX_CACHED_QUERIES = 5
-
         /** SQLite allows 999 bound parameters per statement. */
         private const val MAX_QUERIES_PER_STATEMENT = 500
     }

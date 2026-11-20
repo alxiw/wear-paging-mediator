@@ -1,10 +1,12 @@
 package io.github.alxiw.wearpagingmediator.presentation.model
 
+import io.github.alxiw.wearpagingmediator.domain.model.RecentQuery
 import io.github.alxiw.wearpagingmediator.domain.model.SearchQuery
 import io.github.alxiw.wearpagingmediator.domain.model.Repo
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+import java.time.Instant
 
 /**
  * Guards the rules of the screen without a watch: a repeat of the query refreshes what is on
@@ -270,6 +272,112 @@ class MainReducerTest {
         assertEquals(listOf(MainEffect.RefreshResults), reduction.effects)
     }
 
+    // region recent queries
+
+    @Test
+    fun recentQueriesRequestedOpensTheLoadingDialog() {
+        val reduction = MainReducer.reduce(state, MainIntent.RecentQueriesRequested)
+
+        assertEquals(
+            state.copy(recentQueriesDialog = RecentQueriesDialogState.Loading),
+            reduction.state
+        )
+        assertEquals(emptyList<MainEffect>(), reduction.effects)
+    }
+
+    @Test
+    fun loadedRecentQueriesAreShownInTheOpenDialog() {
+        val open = state.copy(recentQueriesDialog = RecentQueriesDialogState.Loading)
+
+        val reduction = MainReducer.reduce(open, MainIntent.RecentQueriesLoaded(RECENT_QUERIES))
+
+        assertEquals(
+            open.copy(recentQueriesDialog = RecentQueriesDialogState.Loaded(RECENT_QUERIES)),
+            reduction.state
+        )
+        assertEquals(emptyList<MainEffect>(), reduction.effects)
+    }
+
+    @Test
+    fun failedRecentQueriesAreReportedInTheOpenDialog() {
+        val open = state.copy(recentQueriesDialog = RecentQueriesDialogState.Loading)
+
+        val reduction = MainReducer.reduce(open, MainIntent.RecentQueriesLoadFailed)
+
+        assertEquals(
+            open.copy(recentQueriesDialog = RecentQueriesDialogState.Failed),
+            reduction.state
+        )
+    }
+
+    @Test
+    fun dismissedRecentQueriesDialogIsClosed() {
+        val open = state.copy(recentQueriesDialog = RecentQueriesDialogState.Loaded(RECENT_QUERIES))
+
+        val reduction = MainReducer.reduce(open, MainIntent.RecentQueriesDialogDismissed)
+
+        assertEquals(state, reduction.state)
+        assertEquals(emptyList<MainEffect>(), reduction.effects)
+    }
+
+    @Test
+    fun tappedRecentQueryClosesTheDialogAndSearchesForIt() {
+        val open = state.copy(recentQueriesDialog = RecentQueriesDialogState.Loaded(RECENT_QUERIES))
+
+        val reduction = MainReducer.reduce(open, MainIntent.RecentQueryClicked(" Kotlin "))
+
+        assertEquals(
+            MainState(
+                query = query("kotlin"),
+                lastQueryScrolled = query("android"),
+                scrollToTopPending = true
+            ),
+            reduction.state
+        )
+        assertEquals(emptyList<MainEffect>(), reduction.effects)
+    }
+
+    @Test
+    fun tappedRecentQueryThatIsAlreadySearchedOnlyRefreshesTheResults() {
+        val open = state.copy(recentQueriesDialog = RecentQueriesDialogState.Loaded(RECENT_QUERIES))
+
+        val reduction = MainReducer.reduce(open, MainIntent.RecentQueryClicked("Android"))
+
+        // the dialog is closed, but the results of the query stay on screen while they refresh
+        assertEquals(state, reduction.state)
+        assertEquals(listOf(MainEffect.RefreshResults), reduction.effects)
+    }
+
+    @Test
+    fun loadOfAClosedRecentQueriesDialogIsIgnored() {
+        assertEquals(
+            Reduction(state),
+            MainReducer.reduce(state, MainIntent.RecentQueriesLoaded(RECENT_QUERIES))
+        )
+        assertEquals(
+            Reduction(state),
+            MainReducer.reduce(state, MainIntent.RecentQueriesLoadFailed)
+        )
+    }
+
+    @Test
+    fun loadOfAnAlreadyLoadedRecentQueriesDialogIsIgnored() {
+        val loaded = state.copy(
+            recentQueriesDialog = RecentQueriesDialogState.Loaded(RECENT_QUERIES)
+        )
+
+        assertEquals(
+            Reduction(loaded),
+            MainReducer.reduce(loaded, MainIntent.RecentQueriesLoaded(emptyList()))
+        )
+        assertEquals(
+            Reduction(loaded),
+            MainReducer.reduce(loaded, MainIntent.RecentQueriesLoadFailed)
+        )
+    }
+
+    // endregion
+
     /** Builds the query the way the screen does: anything that comes in is canonical. */
     private fun query(raw: String): SearchQuery = SearchQuery.of(raw)
 
@@ -299,5 +407,17 @@ class MainReducerTest {
         /** The counts the dialog of the topics shows in full under the description. */
         const val STARS = 468_224
         const val FORKS = 12_345
+
+        /** The recent queries the dialog offers, the most recently used one first. */
+        val RECENT_QUERIES = listOf(
+            RecentQuery(
+                query = SearchQuery.of("kotlin"),
+                accessedAt = Instant.parse("2026-10-21T17:16:56Z")
+            ),
+            RecentQuery(
+                query = SearchQuery.of("android"),
+                accessedAt = Instant.parse("2026-10-20T09:05:43Z")
+            )
+        )
     }
 }

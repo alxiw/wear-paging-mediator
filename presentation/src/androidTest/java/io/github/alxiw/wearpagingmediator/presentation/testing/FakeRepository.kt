@@ -6,6 +6,7 @@ import androidx.paging.PagingData
 import androidx.paging.PagingSource
 import androidx.paging.PagingState
 import io.github.alxiw.wearpagingmediator.domain.Repository
+import io.github.alxiw.wearpagingmediator.domain.model.RecentQuery
 import io.github.alxiw.wearpagingmediator.domain.model.SearchQuery
 import io.github.alxiw.wearpagingmediator.domain.model.Repo
 import kotlinx.coroutines.flow.Flow
@@ -39,6 +40,13 @@ internal class FakeRepository : Repository {
     /** What [getRepoTopics] answers, no topics by default. */
     var topics: suspend (repoId: Long) -> List<String> = { emptyList() }
 
+    /** How many times the dialog of the recent queries asked for them. */
+    var recentQueriesRequests = 0
+        private set
+
+    /** What [getRecentQueries] answers, no recent queries by default. */
+    var recentQueries: suspend () -> List<RecentQuery> = { emptyList() }
+
     override fun getReposFlow(query: SearchQuery): Flow<PagingData<Repo>> {
         queries += query
         return Pager(
@@ -54,6 +62,11 @@ internal class FakeRepository : Repository {
     override suspend fun getRepoTopics(repoId: Long): List<String> {
         topicsRequests += repoId
         return topics(repoId)
+    }
+
+    override suspend fun getRecentQueries(): List<RecentQuery> {
+        recentQueriesRequests++
+        return recentQueries()
     }
 
     private inner class Source(private val query: SearchQuery) : PagingSource<Int, Repo>() {
