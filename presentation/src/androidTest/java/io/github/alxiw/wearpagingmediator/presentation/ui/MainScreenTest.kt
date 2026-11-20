@@ -272,6 +272,37 @@ class MainScreenTest {
         rule.onNodeWithText("wear-os").assertDoesNotExist()
     }
 
+    @Test
+    fun tappedTopicSearchesForItAndTheDialogGoesAway() {
+        val kotlinRepo = repo(id = 10, name = "kotlin-repo")
+        val repository = FakeRepository().apply {
+            topics = { listOf("kotlin") }
+            load = { query, _ -> page(if (query == "kotlin") listOf(kotlinRepo) else REPOS) }
+        }
+
+        showScreen(repository = repository)
+        scrollTo(FIRST_REPO.name)
+
+        rule.onNodeWithText(FIRST_REPO.name).performClick()
+        rule.awaitNode(hasText("kotlin"))
+        rule.onNodeWithText("kotlin").performClick()
+
+        rule.awaitCondition { repository.queries == listOf(DEFAULT_QUERY, query("kotlin")) }
+        // the dialog fades out before it leaves the tree
+        rule.mainClock.advanceTimeBy(1_000)
+        rule.waitForIdle()
+
+        // the topic is the query now: the search button shows it and the results are its own
+        rule.onNodeWithText("kotlin").assertIsDisplayed()
+        scrollTo(kotlinRepo.name)
+        assertEquals(0, rule.onAllNodes(hasText(FIRST_REPO.name)).fetchSemanticsNodes().size)
+
+        // back from a topic search returns to the default query, like back from any other search
+        rule.runOnUiThread { rule.activity.onBackPressedDispatcher.onBackPressed() }
+        rule.awaitCondition { viewModel.state.value.lastQueryScrolled == DEFAULT_QUERY }
+        rule.onNodeWithText(DEFAULT_QUERY.value).assertIsDisplayed()
+    }
+
     // endregion
 
     // region navigation

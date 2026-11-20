@@ -20,7 +20,7 @@ sealed interface MainIntent {
     /**
      * The voice panel returned [query]: the raw text of the reply, `null` when the panel was
      * closed without a reply. The reducer turns it into the canonical query and rejects a blank
-     * one, so this is the only place a raw string enters the state.
+     * one, so raw search text never reaches the state unnormalized.
      */
     data class QuerySubmitted(val query: String?) : MainIntent
 
@@ -35,6 +35,13 @@ sealed interface MainIntent {
 
     /** The user dismissed the topics dialog. */
     data object TopicsDialogDismissed : MainIntent
+
+    /**
+     * The user tapped [topic] in the topics dialog: the dialog is closed and [topic] becomes the
+     * query of the results, exactly as if the user had typed and submitted it. The topic is raw
+     * text, so the reducer canonicalizes it the same way it canonicalizes the reply of the panel.
+     */
+    data class TopicClicked(val topic: String) : MainIntent
 
     /** The topics of [repoId] were read, the result of [RepoClicked] sent by the state holder. */
     data class TopicsLoaded(val repoId: Long, val topics: List<String>) : MainIntent

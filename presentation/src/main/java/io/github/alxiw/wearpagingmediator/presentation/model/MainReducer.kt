@@ -33,6 +33,7 @@ internal object MainReducer {
             effects = listOf(MainEffect.OpenUrl(intent.repo.url))
         )
         is MainIntent.TopicsDialogDismissed -> Reduction(state.copy(topicsDialog = null))
+        is MainIntent.TopicClicked -> reduceTopicClicked(state, intent.topic)
         is MainIntent.TopicsLoaded -> reduceTopicsLoaded(state, intent)
         is MainIntent.TopicsLoadFailed -> reduceTopicsFailed(state, intent)
     }
@@ -52,6 +53,14 @@ internal object MainReducer {
             else -> Reduction(state.searching(query))
         }
     }
+
+    /**
+     * A tapped topic is a search: the dialog that showed it is closed and the topic becomes the
+     * query. It goes through the rules of a submitted search, so tapping the topic that is already
+     * searched only refreshes the results that are on screen.
+     */
+    private fun reduceTopicClicked(state: MainState, topic: String): Reduction =
+        reduceSubmission(state.copy(topicsDialog = null), topic)
 
     private fun reduceScroll(state: MainState, query: SearchQuery): Reduction = Reduction(
         state.copy(

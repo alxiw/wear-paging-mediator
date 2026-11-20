@@ -90,7 +90,7 @@ class MainViewModel @Inject constructor(
 
         when (intent) {
             is MainIntent.RepoClicked -> loadTopics(intent.repo.id)
-            is MainIntent.TopicsDialogDismissed -> topicsJob?.cancel()
+            is MainIntent.TopicsDialogDismissed, is MainIntent.TopicClicked -> topicsJob?.cancel()
             else -> Unit
         }
     }

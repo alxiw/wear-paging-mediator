@@ -200,6 +200,48 @@ class MainReducerTest {
         assertEquals(emptyList<MainEffect>(), reduction.effects)
     }
 
+    @Test
+    fun tappedTopicClosesTheDialogAndSearchesForIt() {
+        val open = state.copy(
+            topicsDialog = TopicsDialogState.Loaded(
+                repoId = 1,
+                repoName = "compose",
+                repoDescription = DESCRIPTION,
+                topics = listOf("kotlin")
+            )
+        )
+
+        val reduction = MainReducer.reduce(open, MainIntent.TopicClicked(" Kotlin "))
+
+        assertEquals(
+            MainState(
+                query = query("kotlin"),
+                lastQueryScrolled = query("android"),
+                scrollToTopPending = true
+            ),
+            reduction.state
+        )
+        assertEquals(emptyList<MainEffect>(), reduction.effects)
+    }
+
+    @Test
+    fun tappedTopicThatIsAlreadySearchedOnlyRefreshesTheResults() {
+        val open = state.copy(
+            topicsDialog = TopicsDialogState.Loaded(
+                repoId = 1,
+                repoName = "compose",
+                repoDescription = DESCRIPTION,
+                topics = listOf("android")
+            )
+        )
+
+        val reduction = MainReducer.reduce(open, MainIntent.TopicClicked("Android"))
+
+        // the dialog is closed, but the results of the query stay on screen while they refresh
+        assertEquals(state, reduction.state)
+        assertEquals(listOf(MainEffect.RefreshResults), reduction.effects)
+    }
+
     /** Builds the query the way the screen does: anything that comes in is canonical. */
     private fun query(raw: String): SearchQuery = SearchQuery.of(raw)
 

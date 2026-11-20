@@ -106,6 +106,7 @@ fun MainScreen(
         },
         onRepoLongClick = { repo -> viewModel.onIntent(MainIntent.RepoLongClicked(repo)) },
         onTopicsDismiss = { viewModel.onIntent(MainIntent.TopicsDialogDismissed) },
+        onTopicClick = { topic -> viewModel.onIntent(MainIntent.TopicClicked(topic)) },
         onRetry = repos::retry,
         listState = listState
     )
@@ -123,6 +124,7 @@ internal fun MainScreenContent(
     onRepoClick: (Repo) -> Unit,
     onRepoLongClick: (Repo) -> Unit,
     onTopicsDismiss: () -> Unit,
+    onTopicClick: (String) -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
     listState: TransformingLazyColumnState = rememberTransformingLazyColumnState()
@@ -184,7 +186,11 @@ internal fun MainScreenContent(
         }
 
         // the dialog lives in the scaffold to dim and scale the screen behind it
-        TopicsDialog(state = state.topicsDialog, onDismiss = onTopicsDismiss)
+        TopicsDialog(
+            state = state.topicsDialog,
+            onDismiss = onTopicsDismiss,
+            onTopicClick = onTopicClick
+        )
     }
 }
 
@@ -206,6 +212,7 @@ private fun MainScreenLoadedPreview() {
             onRepoClick = {},
             onRepoLongClick = {},
             onTopicsDismiss = {},
+            onTopicClick = {},
             onRetry = {}
         )
     }
@@ -231,6 +238,7 @@ private fun MainScreenTopicsPreview() {
             onRepoClick = {},
             onRepoLongClick = {},
             onTopicsDismiss = {},
+            onTopicClick = {},
             onRetry = {}
         )
     }
@@ -250,6 +258,7 @@ private fun MainScreenLoadingPreview() {
             onRepoClick = {},
             onRepoLongClick = {},
             onTopicsDismiss = {},
+            onTopicClick = {},
             onRetry = {}
         )
     }
@@ -269,6 +278,7 @@ private fun MainScreenEmptyPreview() {
             onRepoClick = {},
             onRepoLongClick = {},
             onTopicsDismiss = {},
+            onTopicClick = {},
             onRetry = {}
         )
     }
@@ -285,6 +295,7 @@ private fun MainScreenRefreshErrorPreview() {
             onRepoClick = {},
             onRepoLongClick = {},
             onTopicsDismiss = {},
+            onTopicClick = {},
             onRetry = {}
         )
     }

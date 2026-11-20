@@ -5,6 +5,7 @@ import androidx.compose.ui.test.hasScrollToIndexAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import io.github.alxiw.wearpagingmediator.presentation.R
@@ -12,6 +13,7 @@ import io.github.alxiw.wearpagingmediator.presentation.model.TopicsDialogState
 import io.github.alxiw.wearpagingmediator.presentation.testing.awaitNode
 import io.github.alxiw.wearpagingmediator.presentation.testing.label
 import io.github.alxiw.wearpagingmediator.presentation.testing.setWearContent
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -32,7 +34,8 @@ class TopicsDialogTest {
         rule.setWearContent {
             TopicsDialog(
                 state = TopicsDialogState.Loading(1, repoName, description),
-                onDismiss = {}
+                onDismiss = {},
+                onTopicClick = {}
             )
         }
 
@@ -51,7 +54,8 @@ class TopicsDialogTest {
                     repoDescription = description,
                     topics = listOf("android", "paging", "wear-os")
                 ),
-                onDismiss = {}
+                onDismiss = {},
+                onTopicClick = {}
             )
         }
 
@@ -74,7 +78,8 @@ class TopicsDialogTest {
                     repoDescription = description,
                     topics = emptyList()
                 ),
-                onDismiss = {}
+                onDismiss = {},
+                onTopicClick = {}
             )
         }
 
@@ -87,7 +92,8 @@ class TopicsDialogTest {
         rule.setWearContent {
             TopicsDialog(
                 state = TopicsDialogState.Failed(1, repoName, description),
-                onDismiss = {}
+                onDismiss = {},
+                onTopicClick = {}
             )
         }
 
@@ -105,11 +111,35 @@ class TopicsDialogTest {
                     repoDescription = null,
                     topics = listOf("paging")
                 ),
-                onDismiss = {}
+                onDismiss = {},
+                onTopicClick = {}
             )
         }
 
         rule.awaitNode(hasText(repoName))
         rule.onNodeWithText("paging").assertIsDisplayed()
+    }
+
+    @Test
+    fun tappedTopicIsReported() {
+        val tapped = mutableListOf<String>()
+
+        rule.setWearContent {
+            TopicsDialog(
+                state = TopicsDialogState.Loaded(
+                    repoId = 1,
+                    repoName = repoName,
+                    repoDescription = null,
+                    topics = listOf("android", "paging")
+                ),
+                onDismiss = {},
+                onTopicClick = { tapped += it }
+            )
+        }
+
+        rule.awaitNode(hasText("android"))
+        rule.onNodeWithText("android").performClick()
+
+        assertEquals(listOf("android"), tapped)
     }
 }

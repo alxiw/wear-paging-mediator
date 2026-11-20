@@ -31,6 +31,7 @@ import io.github.alxiw.wearpagingmediator.presentation.model.TopicsDialogState
 /**
  * The dialog with the topics of a tapped result: the name of the repo, its description in
  * full and then the topics. The topics are read when it opens, so it shows the loading state first.
+ * A topic is a way to search for it: tapping one reports it through [onTopicClick].
  *
  * The last shown state is kept while the dialog animates out: a dismissed dialog is still composed
  * for a moment, and without it the content would disappear before the animation ends.
@@ -38,7 +39,8 @@ import io.github.alxiw.wearpagingmediator.presentation.model.TopicsDialogState
 @Composable
 fun TopicsDialog(
     state: TopicsDialogState?,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onTopicClick: (String) -> Unit
 ) {
     var lastShown by remember { mutableStateOf<TopicsDialogState?>(null) }
     SideEffect {
@@ -73,7 +75,9 @@ fun TopicsDialog(
                 is TopicsDialogState.Loaded -> if (shown.topics.isEmpty()) {
                     item { Text(text = stringResource(R.string.topics_empty)) }
                 } else {
-                    items(shown.topics) { topic -> TopicCard(topic) }
+                    items(shown.topics) { topic ->
+                        TopicCard(topic = topic, onClick = { onTopicClick(topic) })
+                    }
                 }
                 is TopicsDialogState.Failed -> item {
                     Text(text = stringResource(R.string.error_topics))
@@ -85,11 +89,14 @@ fun TopicsDialog(
 
 /**
  * A topic in its own outline, so a list of them reads as separate labels and the bounds of a long
- * list are clear.
+ * list are clear. The card is a button: a tap searches for its topic.
  */
 @Composable
-private fun TopicCard(topic: String) {
-    OutlinedCard(modifier = Modifier.height(42.dp)) {
+private fun TopicCard(topic: String, onClick: () -> Unit) {
+    OutlinedCard(
+        onClick = onClick,
+        modifier = Modifier.height(42.dp)
+    ) {
         Text(
             text = topic,
             modifier = Modifier.fillMaxWidth(),
@@ -110,7 +117,7 @@ fun TopicCardPreview() {
                     modifier = Modifier.fillMaxSize()
                 ) {
                     item { Spacer(modifier = Modifier.height(65.dp)) }
-                    item {  TopicCard(topic = "android") }
+                    item { TopicCard(topic = "android", onClick = {}) }
                 }
             }
         }
