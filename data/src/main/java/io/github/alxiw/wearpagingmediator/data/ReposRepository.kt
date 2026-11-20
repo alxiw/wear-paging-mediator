@@ -37,6 +37,9 @@ internal class ReposRepository @Inject constructor(
         ).flow.map { pagingData -> pagingData.map { RepoEntityMapper.toRepo(it) } }
     }
 
+    override suspend fun getRepoTopics(repoId: Long): List<String> =
+        database.reposDao().topicsOf(repoId)
+
     companion object {
         const val NETWORK_PAGE_SIZE = 30
 

@@ -14,5 +14,7 @@ data class MainState(
     val query: SearchQuery = DEFAULT_QUERY,
     val lastQueryScrolled: SearchQuery = DEFAULT_QUERY,
     // the list has not been scrolled to the top for the current query yet
-    val scrollToTopPending: Boolean = false
+    val scrollToTopPending: Boolean = false,
+    /** The topics dialog of the tapped result, `null` while the dialog is closed. */
+    val topicsDialog: TopicsDialogState? = null
 )

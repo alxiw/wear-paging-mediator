@@ -12,4 +12,8 @@
     <string name="search_label">Search repos</string>
     <string name="stars_label">%1$s stars</string>
     <string name="stars_zero">0 stars</string>
+    <string name="open_link_label">Open on GitHub</string>
+    <string name="topics_loading">Loading topics…</string>
+    <string name="topics_empty">No topics</string>
+    <string name="error_topics">Couldn\'t load topics</string>
 </resources>

@@ -27,6 +27,18 @@ sealed interface MainIntent {
     /** The list has been scrolled back to the top for [query]. */
     data class ScrolledToTop(val query: SearchQuery) : MainIntent
 
-    /** The user opened the result of [repo]. */
+    /** The user tapped the result of [repo]: show its topics. */
     data class RepoClicked(val repo: Repo) : MainIntent
+
+    /** The user long-pressed the result of [repo]: open its page. */
+    data class RepoLongClicked(val repo: Repo) : MainIntent
+
+    /** The user dismissed the topics dialog. */
+    data object TopicsDialogDismissed : MainIntent
+
+    /** The topics of [repoId] were read, the result of [RepoClicked] sent by the state holder. */
+    data class TopicsLoaded(val repoId: Long, val topics: List<String>) : MainIntent
+
+    /** The topics of [repoId] could not be read, the result of [RepoClicked]. */
+    data class TopicsLoadFailed(val repoId: Long) : MainIntent
 }

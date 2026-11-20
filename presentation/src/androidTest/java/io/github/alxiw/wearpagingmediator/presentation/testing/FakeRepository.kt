@@ -29,9 +29,15 @@ internal class FakeRepository : Repository {
     var pagesServed = 0
         private set
 
+    /** The repositories the topics were asked for, in the order they were asked for. */
+    val topicsRequests = mutableListOf<Long>()
+
     /** What a page of the given query does, a full page of [REPOS] by default. */
     var load: suspend (query: String, params: PagingSource.LoadParams<Int>) -> PagingSource.LoadResult<Int, Repo> =
         { _, _ -> page(REPOS) }
+
+    /** What [getRepoTopics] answers, no topics by default. */
+    var topics: suspend (repoId: Long) -> List<String> = { emptyList() }
 
     override fun getReposFlow(query: SearchQuery): Flow<PagingData<Repo>> {
         queries += query
@@ -43,6 +49,11 @@ internal class FakeRepository : Repository {
             ),
             pagingSourceFactory = { Source(query) }
         ).flow
+    }
+
+    override suspend fun getRepoTopics(repoId: Long): List<String> {
+        topicsRequests += repoId
+        return topics(repoId)
     }
 
     private inner class Source(private val query: SearchQuery) : PagingSource<Int, Repo>() {

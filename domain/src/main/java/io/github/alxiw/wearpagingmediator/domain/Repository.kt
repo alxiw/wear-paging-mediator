@@ -13,4 +13,7 @@ interface Repository {
      * implementation cannot be split by the case or the spacing of one search.
      */
     fun getReposFlow(query: SearchQuery): Flow<PagingData<Repo>>
+
+    /** The topics of [repoId] as they are cached, the whole list of them. */
+    suspend fun getRepoTopics(repoId: Long): List<String>
 }

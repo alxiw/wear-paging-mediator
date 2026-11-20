@@ -8,6 +8,7 @@ import androidx.paging.cachedIn
 import androidx.paging.insertSeparators
 import androidx.paging.map
 import dagger.hilt.android.lifecycle.HiltViewModel
+import io.github.alxiw.wearpagingmediator.domain.GetRepoTopicsUseCase
 import io.github.alxiw.wearpagingmediator.domain.GetReposFlowUseCase
 import io.github.alxiw.wearpagingmediator.domain.model.SearchQuery
 import io.github.alxiw.wearpagingmediator.presentation.Constants.DEFAULT_QUERY
@@ -19,6 +20,7 @@ import io.github.alxiw.wearpagingmediator.presentation.model.StarBand
 import io.github.alxiw.wearpagingmediator.presentation.model.ListModel
 import io.github.alxiw.wearpagingmediator.presentation.util.CountFormatter
 import io.github.alxiw.wearpagingmediator.presentation.util.UiText
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -32,6 +34,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
@@ -43,6 +46,7 @@ import javax.inject.Inject
 @HiltViewModel
 class MainViewModel @Inject constructor(
     private val getReposFlow: GetReposFlowUseCase,
+    private val getRepoTopics: GetRepoTopicsUseCase,
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -67,6 +71,9 @@ class MainViewModel @Inject constructor(
     private val pagingDataCache =
         LinkedHashMap<SearchQuery, CachedQuery>(MAX_CACHED_QUERIES, 0.75f, true)
 
+    /** The load of the topics of the open dialog, cancelled when the dialog is closed. */
+    private var topicsJob: Job? = null
+
     val pagingDataFlow: Flow<PagingData<ListModel>> = state
         .map { it.query }
         .distinctUntilChanged()
@@ -80,6 +87,31 @@ class MainViewModel @Inject constructor(
         _state.value = reduction.state
         persist(previous, reduction.state)
         reduction.effects.forEach { effectChannel.trySend(it) }
+
+        when (intent) {
+            is MainIntent.RepoClicked -> loadTopics(intent.repo.id)
+            is MainIntent.TopicsDialogDismissed -> topicsJob?.cancel()
+            else -> Unit
+        }
+    }
+
+    /**
+     * The topics are read only when the dialog is opened, they are not a part of the page. A load
+     * of another repo or of a closed dialog is dropped by the reducer.
+     */
+    private fun loadTopics(repoId: Long) {
+        topicsJob?.cancel()
+        topicsJob = viewModelScope.launch {
+            val topics = try {
+                getRepoTopics(repoId)
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (error: Exception) {
+                onIntent(MainIntent.TopicsLoadFailed(repoId))
+                return@launch
+            }
+            onIntent(MainIntent.TopicsLoaded(repoId, topics))
+        }
     }
 
     /**

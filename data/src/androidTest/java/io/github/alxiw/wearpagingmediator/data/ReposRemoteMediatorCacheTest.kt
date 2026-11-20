@@ -87,6 +87,27 @@ class ReposRemoteMediatorCacheTest {
         assertEquals(500, database.reposDao().starsOf(FIRST_REPO_ID))
     }
 
+    @Test
+    fun refreshReplacesTopicsThatAreNoLongerOnGitHub() = runBlocking {
+        val cached = ReposRemoteMediator(
+            QUERY_ANDROID,
+            FakeGitHubApi(listOf(repoResponse(FIRST_REPO_ID, topics = listOf("android", "paging")))),
+            database
+        )
+        assertTrue(cached.load(LoadType.REFRESH, pagingState()) is RemoteMediator.MediatorResult.Success)
+        assertEquals(listOf("android", "paging"), database.reposDao().topicsOf(FIRST_REPO_ID))
+
+        val refreshed = ReposRemoteMediator(
+            QUERY_ANDROID,
+            FakeGitHubApi(listOf(repoResponse(FIRST_REPO_ID, topics = listOf("android")))),
+            database
+        )
+        assertTrue(refreshed.load(LoadType.REFRESH, pagingState()) is RemoteMediator.MediatorResult.Success)
+
+        // the page carries the whole topic list, so the dropped one must not stay in the cache
+        assertEquals(listOf("android"), database.reposDao().topicsOf(FIRST_REPO_ID))
+    }
+
     private fun pagingState() = PagingState<Int, RepoEntity>(
         pages = emptyList(),
         anchorPosition = null,
@@ -94,7 +115,11 @@ class ReposRemoteMediatorCacheTest {
         leadingPlaceholderCount = 0
     )
 
-    private fun repoResponse(id: Long, stars: Int = 100) = RepoResponse(
+    private fun repoResponse(
+        id: Long,
+        stars: Int = 100,
+        topics: List<String> = listOf("android", "paging")
+    ) = RepoResponse(
         id = id,
         name = "repo-$id",
         fullName = "alxiw/repo-$id",
@@ -103,7 +128,7 @@ class ReposRemoteMediatorCacheTest {
         stars = stars,
         forks = 10,
         language = "Kotlin",
-        topics = listOf("android", "paging")
+        topics = topics
     )
 
     private class FakeGitHubApi(

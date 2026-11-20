@@ -20,9 +20,21 @@ internal object MainReducer {
         is MainIntent.QuerySubmitted -> reduceSubmission(state, intent.query)
         is MainIntent.ScrolledToTop -> reduceScroll(state, intent.query)
         is MainIntent.RepoClicked -> Reduction(
+            state.copy(
+                topicsDialog = TopicsDialogState.Loading(
+                    repoId = intent.repo.id,
+                    repoName = intent.repo.name,
+                    repoDescription = intent.repo.description
+                )
+            )
+        )
+        is MainIntent.RepoLongClicked -> Reduction(
             state = state,
             effects = listOf(MainEffect.OpenUrl(intent.repo.url))
         )
+        is MainIntent.TopicsDialogDismissed -> Reduction(state.copy(topicsDialog = null))
+        is MainIntent.TopicsLoaded -> reduceTopicsLoaded(state, intent)
+        is MainIntent.TopicsLoadFailed -> reduceTopicsFailed(state, intent)
     }
 
     /**
@@ -48,6 +60,42 @@ internal object MainReducer {
             scrollToTopPending = state.query != query
         )
     )
+
+    /** A result of a load is applied only to the dialog it was started for. */
+    private fun reduceTopicsLoaded(
+        state: MainState,
+        intent: MainIntent.TopicsLoaded
+    ): Reduction {
+        val dialog = state.topicsDialog
+        if (dialog?.repoId != intent.repoId) return Reduction(state)
+        return Reduction(
+            state.copy(
+                topicsDialog = TopicsDialogState.Loaded(
+                    repoId = intent.repoId,
+                    repoName = dialog.repoName,
+                    repoDescription = dialog.repoDescription,
+                    topics = intent.topics
+                )
+            )
+        )
+    }
+
+    private fun reduceTopicsFailed(
+        state: MainState,
+        intent: MainIntent.TopicsLoadFailed
+    ): Reduction {
+        val dialog = state.topicsDialog
+        if (dialog?.repoId != intent.repoId) return Reduction(state)
+        return Reduction(
+            state.copy(
+                topicsDialog = TopicsDialogState.Failed(
+                    repoId = intent.repoId,
+                    repoName = dialog.repoName,
+                    repoDescription = dialog.repoDescription
+                )
+            )
+        )
+    }
 
     /** A new query always starts the results from the top, unless they already are there. */
     private fun MainState.searching(query: SearchQuery): MainState = copy(

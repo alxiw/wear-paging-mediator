@@ -35,12 +35,16 @@ import io.github.alxiw.wearpagingmediator.presentation.util.TextShortener
 @Composable
 fun RepoCard(
     repo: Repo,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
+    onLongClickLabel: String? = null
 ) {
     val description = remember(repo.description) { TextShortener.shorten(repo.description) }
 
     Card(
         onClick = onClick,
+        onLongClick = onLongClick,
+        onLongClickLabel = onLongClickLabel
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),

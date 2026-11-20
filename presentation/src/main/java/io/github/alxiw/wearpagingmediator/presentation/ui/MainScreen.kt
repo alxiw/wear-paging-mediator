@@ -34,6 +34,7 @@ import io.github.alxiw.wearpagingmediator.presentation.model.MainEffect
 import io.github.alxiw.wearpagingmediator.presentation.model.MainIntent
 import io.github.alxiw.wearpagingmediator.presentation.model.MainState
 import io.github.alxiw.wearpagingmediator.presentation.model.ListModel
+import io.github.alxiw.wearpagingmediator.presentation.model.TopicsDialogState
 import io.github.alxiw.wearpagingmediator.presentation.ui.preview.PreviewLoadStates
 import io.github.alxiw.wearpagingmediator.presentation.ui.preview.WearPreview
 import io.github.alxiw.wearpagingmediator.presentation.ui.preview.rememberPreviewPagingItems
@@ -103,6 +104,8 @@ fun MainScreen(
             Log.d("HELLO", "Repo ${repo.name} clicked")
             viewModel.onIntent(MainIntent.RepoClicked(repo))
         },
+        onRepoLongClick = { repo -> viewModel.onIntent(MainIntent.RepoLongClicked(repo)) },
+        onTopicsDismiss = { viewModel.onIntent(MainIntent.TopicsDialogDismissed) },
         onRetry = repos::retry,
         listState = listState
     )
@@ -118,6 +121,8 @@ internal fun MainScreenContent(
     repos: LazyPagingItems<ListModel>,
     onSearchClick: () -> Unit,
     onRepoClick: (Repo) -> Unit,
+    onRepoLongClick: (Repo) -> Unit,
+    onTopicsDismiss: () -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
     listState: TransformingLazyColumnState = rememberTransformingLazyColumnState()
@@ -126,6 +131,7 @@ internal fun MainScreenContent(
     val loadState = repos.loadState
     val notice = ListStatus.notice(loadState.refresh, loadState.append, repos.itemCount)
     val footer = ListStatus.footer(loadState.refresh, loadState.append, repos.itemCount)
+    val linkLabel = stringResource(R.string.open_link_label)
 
     AppScaffold(modifier = modifier) {
         ScreenScaffold(
@@ -158,9 +164,12 @@ internal fun MainScreenContent(
                     contentType = repos.itemContentType { it.contentType }
                 ) { index ->
                     when (val item = repos[index]) {
+                        // a tap opens the topics of the result, a long press hands its link over
                         is ListModel.RepoItem -> RepoCard(
                             repo = item.repo,
-                            onClick = { onRepoClick(item.repo) }
+                            onClick = { onRepoClick(item.repo) },
+                            onLongClick = { onRepoLongClick(item.repo) },
+                            onLongClickLabel = linkLabel
                         )
                         is ListModel.SeparatorItem -> SeparatorCard(description = item.description)
                         null -> Unit // Placeholder for loading
@@ -173,6 +182,9 @@ internal fun MainScreenContent(
                 }
             }
         }
+
+        // the dialog lives in the scaffold to dim and scale the screen behind it
+        TopicsDialog(state = state.topicsDialog, onDismiss = onTopicsDismiss)
     }
 }
 
@@ -192,6 +204,33 @@ private fun MainScreenLoadedPreview() {
             repos = rememberPreviewPagingItems(),
             onSearchClick = {},
             onRepoClick = {},
+            onRepoLongClick = {},
+            onTopicsDismiss = {},
+            onRetry = {}
+        )
+    }
+}
+
+@WearPreview
+@Composable
+private fun MainScreenTopicsPreview() {
+    WearScreenPreview {
+        MainScreenContent(
+            state = MainState(
+                query = PREVIEW_QUERY,
+                topicsDialog = TopicsDialogState.Loaded(
+                    repoId = 1,
+                    repoName = "alxiw/wear-paging-mediator",
+                    repoDescription = "A Wear OS search sample that pages the results of GitHub " +
+                        "through a Room cache, so the cached results of a query are shown at once",
+                    topics = listOf("android", "paging", "wear-os")
+                )
+            ),
+            repos = rememberPreviewPagingItems(),
+            onSearchClick = {},
+            onRepoClick = {},
+            onRepoLongClick = {},
+            onTopicsDismiss = {},
             onRetry = {}
         )
     }
@@ -209,6 +248,8 @@ private fun MainScreenLoadingPreview() {
             ),
             onSearchClick = {},
             onRepoClick = {},
+            onRepoLongClick = {},
+            onTopicsDismiss = {},
             onRetry = {}
         )
     }
@@ -226,6 +267,8 @@ private fun MainScreenEmptyPreview() {
             ),
             onSearchClick = {},
             onRepoClick = {},
+            onRepoLongClick = {},
+            onTopicsDismiss = {},
             onRetry = {}
         )
     }
@@ -240,6 +283,8 @@ private fun MainScreenRefreshErrorPreview() {
             repos = rememberPreviewPagingItems(loadStates = PreviewLoadStates.refreshError),
             onSearchClick = {},
             onRepoClick = {},
+            onRepoLongClick = {},
+            onTopicsDismiss = {},
             onRetry = {}
         )
     }

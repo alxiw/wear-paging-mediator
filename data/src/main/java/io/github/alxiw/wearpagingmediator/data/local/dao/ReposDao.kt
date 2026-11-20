@@ -28,6 +28,20 @@ internal interface ReposDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertRepoTopics(crossRefs: List<RepoTopicCrossRef>)
 
+    /**
+     * A page carries the whole current topic list of its repos, so their links are dropped before
+     * the new ones are inserted: otherwise a topic removed on GitHub would stay in the cache.
+     */
+    @Query("DELETE FROM repo_topic_cross_ref WHERE id IN (:repoIds)")
+    suspend fun deleteRepoTopics(repoIds: List<Long>)
+
+    @Query("""
+        SELECT topic FROM repo_topic_cross_ref
+        WHERE id = :repoId
+        ORDER BY topic COLLATE NOCASE ASC
+    """)
+    suspend fun topicsOf(repoId: Long): List<String>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSearchResults(searchResults: List<SearchQueryResultEntity>)
 

@@ -131,6 +131,9 @@ internal class ReposRemoteMediator(
             val crossRefs = repoResponses.flatMap { response ->
                 response.topics.map { topic -> RepoTopicCrossRef(response.id, topic) }
             }
+            val repoIds = repos.map { it.id }
+            // the response holds the whole topic list of these repos, not only the new links
+            if (repoIds.isNotEmpty()) database.reposDao().deleteRepoTopics(repoIds)
             database.reposDao().insertRepoTopics(crossRefs)
         }
     }

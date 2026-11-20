@@ -9,14 +9,17 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasScrollToIndexAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performTouchInput
 import androidx.lifecycle.SavedStateHandle
 import androidx.paging.PagingSource
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.wear.compose.material3.MaterialTheme
+import io.github.alxiw.wearpagingmediator.domain.GetRepoTopicsUseCase
 import io.github.alxiw.wearpagingmediator.domain.GetReposFlowUseCase
 import io.github.alxiw.wearpagingmediator.domain.model.SearchQuery
 import io.github.alxiw.wearpagingmediator.presentation.Constants.DEFAULT_QUERY
@@ -220,17 +223,68 @@ class MainScreenTest {
 
     // endregion
 
-    // region navigation
+    // region topics
 
     @Test
-    fun resultOpensItsRepo() {
+    fun tapShowsTheTopicsOfTheRepo() {
+        val repository = FakeRepository().apply {
+            topics = { repoId ->
+                if (repoId == FIRST_REPO.id) listOf("paging", "wear-os") else emptyList()
+            }
+        }
+
+        showScreen(repository = repository)
+        scrollTo(FIRST_REPO.name)
+
+        rule.onNodeWithText(FIRST_REPO.name).performClick()
+
+        rule.awaitNode(hasText("wear-os"))
+        rule.onNodeWithText("paging").assertIsDisplayed()
+        // the topics are read only for the repo that was tapped
+        assertEquals(listOf(FIRST_REPO.id), repository.topicsRequests)
+    }
+
+    @Test
+    fun tapOfRepoWithoutTopicsSaysThereAreNone() {
         showScreen()
         scrollTo(FIRST_REPO.name)
 
         rule.onNodeWithText(FIRST_REPO.name).performClick()
 
+        rule.awaitNode(hasText(label(R.string.topics_empty)))
+    }
+
+    @Test
+    fun dismissedTopicsDialogGoesAway() {
+        val repository = FakeRepository().apply { topics = { listOf("wear-os") } }
+
+        showScreen(repository = repository)
+        scrollTo(FIRST_REPO.name)
+
+        rule.onNodeWithText(FIRST_REPO.name).performClick()
+        rule.awaitNode(hasText("wear-os"))
+
+        rule.runOnUiThread { viewModel.onIntent(MainIntent.TopicsDialogDismissed) }
+        // the dialog fades out before it leaves the tree
+        rule.mainClock.advanceTimeBy(1_000)
+        rule.waitForIdle()
+
+        rule.onNodeWithText("wear-os").assertDoesNotExist()
+    }
+
+    // endregion
+
+    // region navigation
+
+    @Test
+    fun longPressOpensItsRepo() {
+        showScreen()
+        scrollTo(FIRST_REPO.name)
+
+        rule.onNodeWithText(FIRST_REPO.name).performTouchInput { longClick() }
+
         // opening the result is an effect of the ViewModel: it is performed once the screen
-        // collects it, right after the click
+        // collects it, right after the long press
         rule.awaitCondition { context.startedIntents.size == 1 }
         val intent = context.startedIntents.single()
         assertEquals(Intent.ACTION_VIEW, intent.action)
@@ -243,7 +297,7 @@ class MainScreenTest {
         showScreen(startActivityError = SecurityException("no browser"))
         scrollTo(FIRST_REPO.name)
 
-        rule.onNodeWithText(FIRST_REPO.name).performClick()
+        rule.onNodeWithText(FIRST_REPO.name).performTouchInput { longClick() }
 
         // the link is handed over to nobody, and the screen stays on its results instead of dying
         // with the effect that failed to open it
@@ -398,7 +452,11 @@ class MainScreenTest {
         startActivityError: RuntimeException? = null
     ) {
         this.repository = repository
-        viewModel = MainViewModel(GetReposFlowUseCase(repository), SavedStateHandle())
+        viewModel = MainViewModel(
+            GetReposFlowUseCase(repository),
+            GetRepoTopicsUseCase(repository),
+            SavedStateHandle()
+        )
         context = RecordingContext(rule.activity, startActivityError)
 
         rule.setContent {
