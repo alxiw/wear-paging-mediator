@@ -10,9 +10,9 @@ internal data class Reduction(
 )
 
 /**
- * The single place the state of the screen changes. The reducer is pure, so the rules of the
- * screen (what a repeat of the query does, when the list has to go back to the top) are guarded by
- * a JVM test instead of being spread over the composables.
+ * The single place the state of the screen changes, a pure function of the state and an intent: the
+ * rules of the screen (what a repeat of the query does, when the list goes back to the top) are
+ * guarded by a JVM test instead of being spread over the composables.
  */
 internal object MainReducer {
 
@@ -51,10 +51,10 @@ internal object MainReducer {
     }
 
     /**
-     * A closed panel and a blank reply are not a search. The same query is not a new search
-     * either: the paging flow ignores it, so only the network part is repeated and the cached
-     * results stay on screen while they are refreshed. The raw reply is turned into its canonical
-     * form here, so `Android`, `android` and `  ANDROID ` are the same search.
+     * A closed panel and a blank reply are not a search, and neither is the same query again: the
+     * paging flow ignores it, so only the network part is repeated, no new Pager is created and the
+     * query keeps its place among the recent ones. The raw reply is canonicalized here, so
+     * `Android`, `android` and `  ANDROID ` are the same search.
      */
     private fun reduceSubmission(state: MainState, rawQuery: String?): Reduction {
         val query = rawQuery?.let(SearchQuery::of) ?: return Reduction(state)

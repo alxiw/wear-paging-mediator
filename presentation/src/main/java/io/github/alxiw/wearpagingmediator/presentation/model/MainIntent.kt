@@ -12,17 +12,12 @@ import io.github.alxiw.wearpagingmediator.domain.model.Repo
 sealed interface MainIntent {
 
     /**
-     * The user chose [query] as the query of the results: a new search, a repeated one or the
-     * reset back to the default query done by back. The query is canonical by its type, the screen
-     * builds it with `SearchQuery.of` at the edge where the text comes from.
+     * The user chose [query] as the query of the results: a new search, a repeated one or the reset
+     * to the default one done by back.
      */
     data class Search(val query: SearchQuery) : MainIntent
 
-    /**
-     * The voice panel returned [query]: the raw text of the reply, `null` when the panel was
-     * closed without a reply. The reducer turns it into the canonical query and rejects a blank
-     * one, so raw search text never reaches the state unnormalized.
-     */
+    /** The reply of the voice panel: raw text, `null` when it was closed without a reply. */
     data class QuerySubmitted(val query: String?) : MainIntent
 
     /** The list has been scrolled back to the top for [query]. */
@@ -38,9 +33,8 @@ sealed interface MainIntent {
     data object TopicsDialogDismissed : MainIntent
 
     /**
-     * The user tapped [topic] in the topics dialog: the dialog is closed and [topic] becomes the
-     * query of the results, exactly as if the user had typed and submitted it. The topic is raw
-     * text, so the reducer canonicalizes it the same way it canonicalizes the reply of the panel.
+     * The user tapped [topic]: the dialog is closed and the raw text becomes the query, exactly as
+     * if the user had typed and submitted it.
      */
     data class TopicClicked(val topic: String) : MainIntent
 
@@ -57,9 +51,8 @@ sealed interface MainIntent {
     data object RecentQueriesDialogDismissed : MainIntent
 
     /**
-     * The user tapped [query] in the dialog with the recent queries: the dialog is closed and
-     * [query] becomes the query of the results, exactly as if a topic had been tapped. The query is
-     * raw text, so the reducer canonicalizes it the same way it canonicalizes a submitted one.
+     * The user tapped [query] in the dialog of the recent queries: the dialog is closed and the
+     * query becomes the query of the results, as in [TopicClicked].
      */
     data class RecentQueryClicked(val query: String) : MainIntent
 

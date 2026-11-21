@@ -9,9 +9,11 @@ import kotlinx.coroutines.flow.Flow
 interface Repository {
 
     /**
-     * The results of [query] as a paging stream. The query is canonical by its type ([io.github.alxiw.wearpagingmediator.domain.model.SearchQuery]
-     * can be built only by [io.github.alxiw.wearpagingmediator.domain.model.SearchQuery.of]), so the network request and the cache of an
-     * implementation cannot be split by the case or the spacing of one search.
+     * The results of [query] as a paging stream. The query is canonically built, so the request and
+     * the cache of an implementation cannot be split by the case or the spacing of one search.
+     *
+     * An implementation registers the query as opened here: a window that is shown again without a
+     * new stream (the screen keeps some of them) does not move up among the recent queries.
      */
     fun getReposFlow(query: SearchQuery): Flow<PagingData<Repo>>
 

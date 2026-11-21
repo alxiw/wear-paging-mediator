@@ -44,11 +44,10 @@ import java.time.Instant
 
 /**
  * The connected part of the screen: it owns the state holder, the launcher of the voice panel and
- * the effects of the ViewModel, and renders [MainScreenContent] with the state it gets back.
+ * the effects of the ViewModel, and renders [MainScreenContent].
  *
- * The results of the query stay on screen in every load state and look the same whether they come
- * from the cache or from the network: a load state is only reported next to the items ([ListStatus]),
- * so the list is never replaced by a spinner and the cached results of a query are shown right away.
+ * A load state is only reported next to the items ([ListStatus]), so the list is never replaced by
+ * a spinner and the cached results of a query are shown right away.
  */
 @Composable
 fun MainScreen(

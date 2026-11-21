@@ -5,8 +5,8 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 
 /**
- * A query the user opened: the cache keeps the results of the most recently opened queries only,
- * so [accessedAt] is the moment the query was opened, not the moment GitHub answered.
+ * A query whose results are cached: [accessedAt] is the moment its Pager was created, not the
+ * moment GitHub answered, and the least recently used rows are the ones the cache evicts first.
  */
 @Entity(tableName = "search_queries")
 data class SearchQueryEntity(

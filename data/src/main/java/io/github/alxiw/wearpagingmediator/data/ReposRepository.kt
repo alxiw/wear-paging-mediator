@@ -28,9 +28,8 @@ internal class ReposRepository @Inject constructor(
 ) : Repository {
 
     /**
-     * The query is registered before the results are paged: the cache then evicts the least
-     * recently opened query instead of the one being opened, and the eviction cannot invalidate the
-     * paging source of the query it is preparing.
+     * The query is registered as opened before the results are paged, so the cache evicts some
+     * other query and cannot invalidate the paging source of the one it is preparing.
      */
     override fun getReposFlow(query: SearchQuery): Flow<PagingData<Repo>> = flow {
         try {
@@ -83,15 +82,14 @@ internal class ReposRepository @Inject constructor(
 
         /**
          * Bounds the window of pages kept in memory: everything is already persisted in Room, so
-         * pages dropped from the window are re-read on scroll back instead of being kept forever.
-         * The size covers the initial load (2 pages) plus a few appended ones, and it is bigger
-         * than twice the initial load so a dropped page can never break scrolling in both
-         * directions.
+         * pages dropped from the window are re-read on scroll back. The size covers the initial
+         * load of two pages plus a few appended ones, and it is bigger than twice the initial load,
+         * so a dropped page can never break scrolling in both directions.
          *
-         * The initial load is smaller than the initial load size of the default config (3 pages):
-         * the first page of a new query is shown as soon as it is parsed, which matters on a watch
-         * where GitHub search answers with large repository payloads. The prefetch distance stays
-         * below one page, so restoring a scroll position does not append in the background.
+         * The initial load is smaller than the default one of three pages: the first results of a
+         * new query are shown as soon as they are parsed, which matters on a watch where the
+         * payloads are large. The prefetch distance stays below one page, so restoring a scroll
+         * position does not append in the background.
          */
         internal val pagingConfig = PagingConfig(
             pageSize = NETWORK_PAGE_SIZE,

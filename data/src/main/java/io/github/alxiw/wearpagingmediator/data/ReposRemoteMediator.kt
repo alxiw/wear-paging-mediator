@@ -17,13 +17,12 @@ import io.github.alxiw.wearpagingmediator.data.remote.model.RepoResponse
 import io.github.alxiw.wearpagingmediator.domain.model.SearchQuery
 
 /**
- * Keeps the cached results of a query in sync with GitHub: the rows cached by a previous load are
- * shown by the Room PagingSource as soon as the screen opens, while [load] refreshes them from the
- * network in the background. Cached and freshly loaded results look the same, so the source of a
- * page is logged when GitHub was asked.
+ * Keeps the cached results of a query in sync with GitHub: the Room PagingSource shows the rows of
+ * a previous load as soon as the screen opens, while [load] refreshes them from the network. A page
+ * is logged when GitHub is asked, so cached and fresh results can be told apart.
  *
- * The query is canonical by its type, and [queryKey] is the only form the API and the cache see:
- * the request and the rows of one search cannot disagree on the case or the spacing of the query.
+ * [queryKey] is the canonical query, the only form the API and the cache see: the request and the
+ * rows of one search cannot disagree on the case or the spacing of the query.
  */
 @ExperimentalPagingApi
 internal class ReposRemoteMediator(

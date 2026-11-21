@@ -1,15 +1,23 @@
 # Wear Paging Mediator
 
-A Wear OS app for searching GitHub repositories, powered by Paging 3 and built with Clean Architecture and Jetpack Compose.
+A Wear OS app for searching GitHub repositories, powered by [Paging 3](https://developer.android.com/topic/libraries/architecture/paging/v3-overview) and built with Clean Architecture and Jetpack Compose.
 
-## Features
+## Overview
 
-- 🔍 Search GitHub repositories by keyword via voice or text input
-- 📄 Paginated results with dynamic star-based separators
-- 🏷️ Repository details dialog with full description, stats, and clickable topics for instant topic-based search
-- 🕘 Recent searches — long-press the search button to reopen one of the last 20 queries, with the moment each one was used
-- 💾 Offline support — cached data is available without network connection
-- ⌚ Wear OS native UI with rotary scroll and round display support
+- 🔍 **Search & history** — query GitHub repositories via voice or text input, or long-press the search button to reopen one of the last 20 queries
+- 📄 **Paginated results** — infinite scrolling with star-band separators between cards
+- 🏷️ **Repository details** — tap a card for the full description, exact stats, and clickable topics that start a new search, or long-press to open it in a browser
+- 💾 **Offline support** — cached queries and results remain available without a network connection
+- ⌚ **Wear OS native UI** — built for round displays with rotary scroll support
+
+<img src="img/sample.png" alt="Wear Paging Mediator overview" width="540"/>
+
+1. **Splash screen** — the app icon on a black background before the main screen opens.
+2. **Main screen** — the default `android` query with the search button and repository cards (name, summary, language, and abbreviated star/fork counts).
+3. **Recent searches** — up to the last 20 queries with the moment each one was used; tapping an entry runs that search.
+4. **Search input** — the Wear OS input panel for a typed or dictated query.
+5. **Scrolled repository list** — paginated results divided by star-band separators.
+6. **Repository details & topics** — the full description, exact star and fork counts, and topics that start a new search.
 
 ## Architecture
 
@@ -26,25 +34,13 @@ The project follows **Clean Architecture** across four Gradle modules with unidi
 
 - **Single source of truth** — Room's `PagingSource` emits cached results immediately when a query is opened, while `ReposRemoteMediator` fetches fresh pages from the GitHub Search API in the background.
 - **Transactional caching** — Each page load atomically updates repositories, per-query result ordering (`SearchQueryResultEntity`), pagination keys (`RepoRemoteKeyEntity`), and repository-topic relations (`RepoTopicCrossRef`) in Room.
-- **Bounded query cache** — Queries are normalized via `SearchQuery` and cached per query in Room. `RecentQueriesCache` keeps the results of the `RecentQuery.MAX_CACHED_QUERIES` most recently *opened* queries (opening counts, not a successful refresh, so offline use is accounted for) and deletes the rows of the rest together with the repositories and topics no other query references. `MainViewModel` additionally keeps an in-memory LRU of three `Pager` flows — fewer than the Room limit on purpose, so a query that is still shown is never evicted from the database.
+- **Bounded query cache** — Queries are normalized via `SearchQuery` and cached per query in Room. `RecentQueriesCache` keeps the results of the `RecentQuery.MAX_CACHED_QUERIES` most recently *opened* queries and deletes the rows of the rest, together with the repositories and topics no other query references. A query is opened when its `Pager` is created, not when GitHub answers, so an offline opening counts. `MainViewModel` keeps an in-memory LRU of three `Pager` flows — fewer than the Room limit on purpose, so a window that is still shown is never evicted from the database; returning to one of them shows the kept window without a new `Pager`, and the dialog keeps the query where it was.
 - **Schema migrations** — Room exports the schema of every version to `data/schemas`; `GitHubDatabaseMigrationTest` runs the real migrations on those exported schemas and validates the result against the current one.
-- **Offline resilience** — Previously loaded pages and repository topics remain readable from Room without a network connection.
 
 ### Presentation (MVI + Wear Compose)
 
-- **Unidirectional flow** — UI events are sent as `MainIntent`s to `MainViewModel`, processed by the pure `MainReducer` into a new `MainState` (with active query persistence via `SavedStateHandle`) and one-off `MainEffect`s (e.g., refreshing results or opening a link).
-- **Wear OS UI** — Built with `TransformingLazyColumn`, dynamic star-count separators (`StarBand`), contextual load-state notices/footers, and `TopicsDialog` that loads repository topics on demand from Room when a card is tapped. A long press on the search button opens `RecentQueriesDialog`, which reads the most recently opened queries with the moment each one was used and searches for the tapped one.
-
-## Screenshots
-
-<img src="img/sample.png" alt="drawing" width="540"/>
-
-1. **Splash screen** — Launch screen displaying the app icon on a black background before the main screen opens.
-2. **Main screen** — Repository list loaded for the default `android` query, with the search button at the top followed by repository cards showing the repository name, summary, language, and abbreviated star/fork counts.
-3. **Recent searches** — Opened by long-pressing the search button; lists up to the last 20 used queries along with the timestamp of each search. Tapping any entry runs that search.
-4. **Search input** — Opened by tapping the search button; launches the Wear OS input panel for entering a new search query via voice or keyboard.
-5. **Scrolled repository list** — The main screen scrolled down through paginated results in `TransformingLazyColumn`, with dynamic star-count separators between repository cards.
-6. **Repository details & topics** — Opened by tapping a repository card; shows the full repository name, complete description, exact star and fork counts, and clickable topics for launching a topic search. Long-pressing a repository card opens its GitHub page in a browser if one is available on the device.
+- **Unidirectional flow** — UI events are sent as `MainIntent`s to `MainViewModel`, processed by the pure `MainReducer` into a new `MainState` (the active query is persisted via `SavedStateHandle`) and one-off `MainEffect`s (e.g., refreshing results or opening a link).
+- **Wear OS UI** — `TransformingLazyColumn` with star-band separators (`StarBand`), load states shown next to the items, and dialogs that read Room on demand: the repository topics on a tap and the recent queries on a long press of the search button.
 
 ## Dependencies
 

@@ -3,22 +3,18 @@ package io.github.alxiw.wearpagingmediator.domain.model
 import java.util.Locale
 
 /**
- * The canonical form of a search query, shared by everything that has to tell two queries apart:
- * the network request, the database cache and the paging cache of the screen.
+ * The canonical form of a search query, shared by the network request, the database cache and the
+ * paging cache of the screen: two values with the same string are equal, which is what makes them
+ * the same cache key.
  *
- * The constructor is private, so [of] is the only way to build a value: a raw string cannot reach
- * the network or the cache by accident, it has to be turned into a query at the edge it comes from
- * (the voice input, the saved state). Two values with the same canonical string are equal, which is
- * what makes them the same cache key.
+ * The constructor is private, so [of] is the only way to build a value: raw text has to be turned
+ * into a query at the edge it comes from (the voice input, the saved state) and cannot reach the
+ * network or the cache unnormalized. GitHub search is case insensitive and splits a query into
+ * words by whitespace, so `Android`, `android` and `  ANDROID  ` are the same search; the words are
+ * kept separated by a single space, and an underscore is a part of a word.
  *
- * GitHub search is case insensitive and splits a query into words by whitespace, so `Android`,
- * `android` and `  ANDROID  ` are the same search and have to become the same string. Words are
- * kept separated by a single space: that is the separator the search syntax expects, and a space
- * is just a character for the database, so the stored key stays the query itself. An underscore
- * is not a separator on GitHub, it is a part of a word.
- *
- * [Locale.ROOT] is used because the default locale must not change the result: in Turkish a plain
- * lower case would turn `I` into a dotless `ı`.
+ * [Locale.ROOT] keeps the result independent of the locale: in Turkish a plain lower case would
+ * turn `I` into a dotless `ı`.
  */
 @JvmInline
 value class SearchQuery private constructor(val value: String) {

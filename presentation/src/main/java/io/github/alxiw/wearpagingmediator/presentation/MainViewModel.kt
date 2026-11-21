@@ -63,13 +63,14 @@ class MainViewModel @Inject constructor(
 
     /**
      * The results of every visited query are kept: coming back to a previous query (back resets the
-     * search to the default one) shows them from the same window instead of starting a new Pager
-     * and a new refresh. Only [MAX_CACHED_QUERIES] queries are kept, the least recently used one is
-     * dropped together with its window, while the window of a single query is bounded by
-     * `maxSize` of the paging config.
+     * search to the default one) shows them from the same window instead of a new Pager and a new
+     * refresh. Only [MAX_CACHED_QUERIES] queries are kept, the least recently used one is dropped
+     * with its window, and the window of a single query is bounded by `maxSize` of the paging
+     * config.
      *
-     * The database keeps more queries than this cache (`RecentQueriesCache`), so a window that is
-     * still kept here is never evicted from Room while it is shown.
+     * The database keeps more queries (`RecentQueriesCache`), so a window that is still kept here
+     * is never evicted from Room. Such a window is shown again without a new Pager, so the query is
+     * not registered as opened again and keeps its place in the dialog of the recent queries.
      */
     private val pagingDataCache =
         LinkedHashMap<SearchQuery, CachedQuery>(MAX_CACHED_QUERIES, 0.75f, true)

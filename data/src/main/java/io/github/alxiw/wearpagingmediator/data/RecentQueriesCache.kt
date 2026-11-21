@@ -7,14 +7,13 @@ import io.github.alxiw.wearpagingmediator.domain.model.RecentQuery
 import javax.inject.Inject
 
 /**
- * Bounds the cache: the results of at most [RecentQuery.MAX_CACHED_QUERIES] queries are kept,
- * the least recently used ones are deleted together with the repositories no other query
- * references.
+ * Bounds the cache: the results of at most [RecentQuery.MAX_CACHED_QUERIES] queries are kept, the
+ * least recently used ones are deleted together with the repositories no other query references.
  *
- * A query is used when it is opened, not when GitHub answers: the cached results are shown even
- * without a network, and a failed refresh must not make a query that was just looked at look like
- * the least recently used one. A touched query gets an [SearchQueryEntity.accessedAt] above every
- * stored one, so the usage order stays strict even if the clock steps back.
+ * A query is registered when its Pager is created, not when GitHub answers: the cached results are
+ * shown even without a network, and a failed refresh must not make a query that was just opened
+ * look like the least recently used one. A touched query gets an [SearchQueryEntity.accessedAt]
+ * above every stored one, so the order stays strict even if the clock steps back.
  */
 internal class RecentQueriesCache @Inject constructor(
     private val database: GitHubDatabase
