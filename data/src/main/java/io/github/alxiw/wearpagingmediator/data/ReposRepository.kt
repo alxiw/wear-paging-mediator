@@ -55,7 +55,7 @@ internal class ReposRepository @Inject constructor(
                 database = database
             ),
             pagingSourceFactory = {
-                database.reposDao().getReposForQuery(query.value)
+                ReposPagingSource(database.reposDao().getReposForQuery(query.value))
             }
         ).flow.map { pagingData -> pagingData.map { RepoEntityMapper.toRepo(it) } }
     }
@@ -82,18 +82,18 @@ internal class ReposRepository @Inject constructor(
 
         /**
          * Bounds the window of pages kept in memory: everything is already persisted in Room, so
-         * pages dropped from the window are re-read on scroll back. The size covers the initial
-         * load of two pages plus a few appended ones, and it is bigger than twice the initial load,
-         * so a dropped page can never break scrolling in both directions.
+         * pages dropped from the window are re-read on scroll back. The size covers six pages,
+         * enough for scrolling in both directions around the current page.
          *
-         * The initial load is smaller than the default one of three pages: the first results of a
-         * new query are shown as soon as they are parsed, which matters on a watch where the
-         * payloads are large. The prefetch distance stays below one page, so restoring a scroll
-         * position does not append in the background.
+         * The initial load is exactly one page, so the page number of a remote key, the page
+         * requested from GitHub and the positions stored in Room all advance by the same
+         * [NETWORK_PAGE_SIZE]. The first results of a new query are shown as soon as they are
+         * parsed, which matters on a watch where the payloads are large. The prefetch distance
+         * stays below one page, so restoring a scroll position does not append in the background.
          */
         internal val pagingConfig = PagingConfig(
             pageSize = NETWORK_PAGE_SIZE,
-            initialLoadSize = NETWORK_PAGE_SIZE * 2,
+            initialLoadSize = NETWORK_PAGE_SIZE,
             maxSize = NETWORK_PAGE_SIZE * 6,
             prefetchDistance = NETWORK_PAGE_SIZE / 3,
             enablePlaceholders = false

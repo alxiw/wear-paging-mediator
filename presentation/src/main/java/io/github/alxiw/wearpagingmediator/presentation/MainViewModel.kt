@@ -20,10 +20,8 @@ import io.github.alxiw.wearpagingmediator.presentation.model.MainState
 import io.github.alxiw.wearpagingmediator.presentation.model.StarBand
 import io.github.alxiw.wearpagingmediator.presentation.model.ListModel
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -62,18 +60,19 @@ class MainViewModel @Inject constructor(
     val effects: Flow<MainEffect> = effectChannel.receiveAsFlow()
 
     /**
-     * The results of every visited query are kept: coming back to a previous query (back resets the
-     * search to the default one) shows them from the same window instead of a new Pager and a new
-     * refresh. Only [MAX_CACHED_QUERIES] queries are kept, the least recently used one is dropped
-     * with its window, and the window of a single query is bounded by `maxSize` of the paging
-     * config.
+     * The flow of every visited query is kept, not the page window it produces: coming back to a
+     * previous query (back resets the search to the default one) collects that flow again, so the
+     * list starts from the cached head and the mediator refreshes the page around the top instead
+     * of replaying a stale window that may begin in the middle of the search. Only
+     * [MAX_CACHED_QUERIES] flows are kept, the least recently used one is dropped, and the window
+     * of a single query is bounded by `maxSize` of the paging config.
      *
-     * The database keeps more queries (`RecentQueriesCache`), so a window that is still kept here
-     * is never evicted from Room. Such a window is shown again without a new Pager, so the query is
-     * not registered as opened again and keeps its place in the dialog of the recent queries.
+     * The database keeps more queries (`RecentQueriesCache`), so the results of a kept flow are
+     * still there when it is collected again. The flow itself is reused, so `getReposFlow` is not
+     * called for the same query twice while it is cached.
      */
     private val pagingDataCache =
-        LinkedHashMap<SearchQuery, CachedQuery>(MAX_CACHED_QUERIES, 0.75f, true)
+        LinkedHashMap<SearchQuery, Flow<PagingData<ListModel>>>(MAX_CACHED_QUERIES, 0.75f, true)
 
     /** The load of the topics of the open dialog, cancelled when the dialog is closed. */
     private var topicsJob: Job? = null
@@ -176,24 +175,20 @@ class MainViewModel @Inject constructor(
     }
 
     /**
-     * `cachedIn` never stops collecting the Pager on its own, so every query gets a scope of its
-     * own: its window stays ready while the query is cached and is released as soon as the cache
-     * drops the query.
+     * `pagingDataFlow` caches the currently collected PagingData in the ViewModel scope, while a
+     * visited query is kept here as a cold flow: collecting it again starts a new Pager from the
+     * cached head instead of replaying a window that may start mid-search.
      */
     private fun pagingDataFor(query: SearchQuery): Flow<PagingData<ListModel>> {
-        pagingDataCache[query]?.let { return it.data }
+        pagingDataCache[query]?.let { return it }
 
-        // a failure of one query must not cancel the scope of the ViewModel
-        val job = SupervisorJob(viewModelScope.coroutineContext[Job])
         val data = searchRepo(query)
-            .cachedIn(CoroutineScope(viewModelScope.coroutineContext + job))
-        pagingDataCache[query] = CachedQuery(job = job, data = data)
+        pagingDataCache[query] = data
 
         // the cache is read in the order of access: the first entry is the least recently used one
         while (pagingDataCache.size > MAX_CACHED_QUERIES) {
             val eldest = pagingDataCache.entries.first()
             pagingDataCache.remove(eldest.key)
-            eldest.value.job.cancel()
         }
         return data
     }
@@ -211,12 +206,6 @@ class MainViewModel @Inject constructor(
                 }
         }
     }
-
-    /** The results of one visited query, kept until the cache drops the query. */
-    private class CachedQuery(
-        val job: Job,
-        val data: Flow<PagingData<ListModel>>
-    )
 
     companion object {
         private const val KEY_LAST_SEARCH_QUERY = "last_search_query"

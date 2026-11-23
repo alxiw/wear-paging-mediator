@@ -41,6 +41,11 @@ import io.github.alxiw.wearpagingmediator.presentation.ui.preview.PreviewLoadSta
 import io.github.alxiw.wearpagingmediator.presentation.ui.preview.WearPreview
 import io.github.alxiw.wearpagingmediator.presentation.ui.preview.rememberPreviewPagingItems
 import java.time.Instant
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 
 /**
  * The connected part of the screen: it owns the state holder, the launcher of the voice panel and
@@ -60,6 +65,7 @@ fun MainScreen(
     val state by viewModel.state.collectAsState()
     // the effects are collected once, so they read the paging items of the current frame
     val currentRepos by rememberUpdatedState(repos)
+    val currentState by rememberUpdatedState(state)
 
     // Back resets a custom search back to the default query. On the default query there is
     // nothing to reset, so leave the event to the system and let it finish the activity.
@@ -80,13 +86,43 @@ fun MainScreen(
 
     // Not a part of the state: a refresh of the same query and an opened link are consumed once.
     LaunchedEffect(viewModel) {
-        viewModel.effects.collect { effect ->
-            when (effect) {
-                MainEffect.RefreshResults -> currentRepos.refresh()
-                // a watch may have nothing to open a link with, so a failure to hand the link
-                // over must not bring the screen down with it
-                is MainEffect.OpenUrl -> if (!context.openLink(effect.url)) {
-                    Toast.makeText(context, R.string.error_open_link, Toast.LENGTH_SHORT).show()
+        coroutineScope {
+            var restoreJob: Job? = null
+            viewModel.effects.collect { effect ->
+                when (effect) {
+                    MainEffect.RefreshResults -> {
+                        restoreJob?.cancel()
+                        val anchor = listState.captureListAnchor(currentRepos)
+                        val query = currentState.query
+                        if (anchor == null) {
+                            currentRepos.refresh()
+                        } else {
+                            // Subscribe before the refresh, so even a cache that answers within
+                            // one frame is not missed.
+                            val refreshed = async(start = CoroutineStart.UNDISPATCHED) {
+                                currentRepos.awaitRefreshFinished()
+                            }
+                            currentRepos.refresh()
+                            restoreJob = launch {
+                                if (!refreshed.await()) return@launch
+                                // a search or a scroll in the meantime has its own position
+                                if (currentState.query != query) return@launch
+                                if (listState.isScrollInProgress) return@launch
+                                val index = anchor.indexIn(
+                                    repos = currentRepos,
+                                    headerItemCount = currentRepos.headerItemCount()
+                                )
+                                if (index != null) {
+                                    listState.scrollToItem(index, anchor.scrollOffset)
+                                }
+                            }
+                        }
+                    }
+                    // a watch may have nothing to open a link with, so a failure to hand the link
+                    // over must not bring the screen down with it
+                    is MainEffect.OpenUrl -> if (!context.openLink(effect.url)) {
+                        Toast.makeText(context, R.string.error_open_link, Toast.LENGTH_SHORT).show()
+                    }
                 }
             }
         }

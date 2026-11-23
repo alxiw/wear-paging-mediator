@@ -21,7 +21,7 @@ import io.github.alxiw.wearpagingmediator.data.local.model.SearchQueryResultEnti
         SearchQueryResultEntity::class,
         SearchQueryEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = true
 )
 internal abstract class GitHubDatabase : RoomDatabase() {
@@ -100,6 +100,69 @@ internal abstract class GitHubDatabase : RoomDatabase() {
 
                 // write-only: the topics of a repo are read from `repo_topic_cross_ref`
                 db.execSQL("DROP TABLE IF EXISTS `topics`")
+
+                // Only rows without any reference are removed: `search_query_results` cascades from
+                // `repos`, so a repository still referenced by another query would take that
+                // query's results with it.
+                db.execSQL("""
+                    DELETE FROM `repos`
+                    WHERE NOT EXISTS (SELECT 1 FROM `search_query_results` WHERE `search_query_results`.`repo_id` = `repos`.`id`)
+                    AND NOT EXISTS (SELECT 1 FROM `repo_remote_keys` WHERE `repo_remote_keys`.`repo_id` = `repos`.`id`)
+                """)
+                db.execSQL("""
+                    DELETE FROM `repo_topic_cross_ref`
+                    WHERE NOT EXISTS (SELECT 1 FROM `repos` WHERE `repos`.`id` = `repo_topic_cross_ref`.`repo_id`)
+                """)
+            }
+        }
+
+        /**
+         * A refresh of version 5 could replace a deep page and leave only that slice in
+         * `search_query_results`: its first position is no longer 0, which makes a cold start open
+         * the list in the middle of the search. The initial load was also two pages, so a stored
+         * position could disagree with the page of a remote key.
+         *
+         * The cache is kept only where it is still readable from its first result: the positions of
+         * a query must be a contiguous prefix starting at 0. Any other query is refreshed from the
+         * network the next time it is opened. The limit of the search result offset is the one of
+         * version 6, a later version may serve more results without changing this migration.
+         */
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TEMP TABLE `truncated_queries` AS
+                    SELECT `query` FROM `search_query_results`
+                    GROUP BY `query`
+                    HAVING MIN(`position`) <> 0
+                        OR COUNT(*) <> MAX(`position`) - MIN(`position`) + 1
+                """)
+                db.execSQL("DELETE FROM `repo_remote_keys` WHERE `query` IN (SELECT `query` FROM `truncated_queries`)")
+                db.execSQL("DELETE FROM `search_query_results` WHERE `query` IN (SELECT `query` FROM `truncated_queries`)")
+                db.execSQL("DROP TABLE `truncated_queries`")
+
+                // A key of a result beyond the offset GitHub serves would still point to a page
+                // that always fails with HTTP 422.
+                db.execSQL("""
+                    DELETE FROM `repo_remote_keys`
+                    WHERE EXISTS (
+                        SELECT 1 FROM `search_query_results`
+                        WHERE `search_query_results`.`query` = `repo_remote_keys`.`query`
+                        AND `search_query_results`.`repo_id` = `repo_remote_keys`.`repo_id`
+                        AND `search_query_results`.`position` >= 1000
+                    )
+                """)
+                db.execSQL("DELETE FROM `search_query_results` WHERE `position` >= 1000")
+
+                // A page can be cached as a key without its result, e.g. when a cache was cleared
+                // page by page. Such a key has no page position to restore from.
+                db.execSQL("""
+                    DELETE FROM `repo_remote_keys`
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM `search_query_results`
+                        WHERE `search_query_results`.`query` = `repo_remote_keys`.`query`
+                        AND `search_query_results`.`repo_id` = `repo_remote_keys`.`repo_id`
+                    )
+                """)
 
                 // Only rows without any reference are removed: `search_query_results` cascades from
                 // `repos`, so a repository still referenced by another query would take that

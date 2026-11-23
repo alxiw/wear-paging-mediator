@@ -7,6 +7,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -15,8 +16,9 @@ import org.junit.runner.RunWith
 
 /**
  * Runs the real migration on the real schema of every version (see `schemas`, exported by Room):
- * [MigrationTestHelper.runMigrationsAndValidate] validates the migrated database against `5.json`,
- * so a mismatch between the migration and the entities fails here, not on a user device.
+ * [MigrationTestHelper.runMigrationsAndValidate] validates the migrated database against the
+ * current `6.json`, so a mismatch between the migration and the entities fails here, not on a user
+ * device.
  */
 @RunWith(AndroidJUnit4::class)
 class GitHubDatabaseMigrationTest {
@@ -177,8 +179,122 @@ class GitHubDatabaseMigrationTest {
         assertEquals(listOf("compose"), database.topics(KEYS_ONLY_REPO_ID))
     }
 
+    @Test
+    fun migrationKeepsACacheThatStartsWithTheFirstResult() {
+        helper.createDatabase(TEST_DB_NAME, 5).apply {
+            insertRepo(REPO_ID)
+            insertRepo(OTHER_REPO_ID)
+            insertResult5(QUERY_ANDROID, REPO_ID, position = 0)
+            insertResult5(QUERY_ANDROID, OTHER_REPO_ID, position = 1)
+            insertKey5(REPO_ID, QUERY_ANDROID, nextKey = 2)
+            insertKey5(OTHER_REPO_ID, QUERY_ANDROID, nextKey = 2)
+            insertTopic5(REPO_ID, "android")
+            insertSearchQuery5(QUERY_ANDROID, accessedAt = 123)
+            close()
+        }
+
+        val database = migrateTo6()
+
+        assertEquals(listOf(0, 1), database.positions(QUERY_ANDROID))
+        assertEquals(2, database.count("repo_remote_keys"))
+        assertEquals(listOf(REPO_ID, OTHER_REPO_ID), database.repoIds())
+        assertEquals(listOf("android"), database.topics(REPO_ID))
+        assertEquals(listOf(QUERY_ANDROID), database.queries())
+        assertEquals(123L, database.accessedAt(QUERY_ANDROID))
+    }
+
+    @Test
+    fun migrationDropsACacheThatStartsInTheMiddle() {
+        helper.createDatabase(TEST_DB_NAME, 5).apply {
+            insertRepo(REPO_ID)
+            insertRepo(OTHER_REPO_ID)
+            insertRepo(SHARED_REPO_ID)
+            // Only a deep page was left by the old refresh: the head of this query is gone.
+            insertResult5(QUERY_ANDROID, REPO_ID, position = 30)
+            insertResult5(QUERY_ANDROID, SHARED_REPO_ID, position = 31)
+            insertKey5(REPO_ID, QUERY_ANDROID, prevKey = 1, nextKey = 3)
+            insertKey5(SHARED_REPO_ID, QUERY_ANDROID, prevKey = 1, nextKey = 3)
+            insertTopic5(REPO_ID, "android")
+            // The other query still starts at its first result and shares one repository.
+            insertResult5(QUERY_KOTLIN, OTHER_REPO_ID, position = 0)
+            insertResult5(QUERY_KOTLIN, SHARED_REPO_ID, position = 1)
+            insertKey5(OTHER_REPO_ID, QUERY_KOTLIN, nextKey = 2)
+            insertKey5(SHARED_REPO_ID, QUERY_KOTLIN, nextKey = 2)
+            insertTopic5(OTHER_REPO_ID, "kotlin")
+            insertTopic5(SHARED_REPO_ID, "runtime")
+            insertSearchQuery5(QUERY_ANDROID, accessedAt = 1)
+            insertSearchQuery5(QUERY_KOTLIN, accessedAt = 2)
+            close()
+        }
+
+        val database = migrateTo6()
+
+        assertTrue(database.positions(QUERY_ANDROID).isEmpty())
+        assertEquals(listOf(0, 1), database.positions(QUERY_KOTLIN))
+        assertEquals(0, database.keysOf(QUERY_ANDROID))
+        assertEquals(2, database.keysOf(QUERY_KOTLIN))
+        // The shared repository stays for the query that can still be read from its head.
+        assertEquals(listOf(OTHER_REPO_ID, SHARED_REPO_ID), database.repoIds().sorted())
+        assertNull(database.stars(REPO_ID))
+        assertTrue(database.topics(REPO_ID).isEmpty())
+        assertEquals(listOf("runtime"), database.topics(SHARED_REPO_ID))
+        // The recent query dialog is history, not cache: both queries remain in it.
+        assertEquals(listOf(QUERY_ANDROID, QUERY_KOTLIN), database.queries())
+    }
+
+    @Test
+    fun migrationDropsACacheWithAGap() {
+        helper.createDatabase(TEST_DB_NAME, 5).apply {
+            insertRepo(REPO_ID)
+            insertRepo(OTHER_REPO_ID)
+            insertResult5(QUERY_ANDROID, REPO_ID, position = 0)
+            insertResult5(QUERY_ANDROID, OTHER_REPO_ID, position = 2)
+            insertKey5(REPO_ID, QUERY_ANDROID, nextKey = 2)
+            insertKey5(OTHER_REPO_ID, QUERY_ANDROID, nextKey = 2)
+            insertTopic5(REPO_ID, "android")
+            close()
+        }
+
+        val database = migrateTo6()
+
+        assertTrue(database.positions(QUERY_ANDROID).isEmpty())
+        assertEquals(0, database.count("repo_remote_keys"))
+        assertTrue(database.repoIds().isEmpty())
+    }
+
+    @Test
+    fun migrationRemovesResultsBeyondTheSearchLimit() {
+        val repoIds = (0 until 1_002).map { 10_000L + it }
+        helper.createDatabase(TEST_DB_NAME, 5).apply {
+            repoIds.forEachIndexed { position, repoId ->
+                insertRepo(repoId)
+                insertResult5(QUERY_RUST, repoId, position)
+            }
+            // The first and the last result have a key, the last one points past the limit.
+            insertKey5(repoIds.first(), QUERY_RUST, nextKey = 2)
+            insertKey5(repoIds.last(), QUERY_RUST, prevKey = 34)
+            insertSearchQuery5(QUERY_RUST, accessedAt = 1)
+            close()
+        }
+
+        val database = migrateTo6()
+
+        val positions = database.positions(QUERY_RUST)
+        assertEquals(1_000, positions.size)
+        assertEquals(0, positions.first())
+        assertEquals(999, positions.last())
+        assertEquals(1_000, database.count("repos"))
+        assertEquals(1, database.count("repo_remote_keys"))
+        assertNull(database.stars(repoIds.last()))
+        // The query itself stays in the recent dialog and will be refreshed from its head.
+        assertEquals(listOf(QUERY_RUST), database.queries())
+    }
+
     private fun migrateTo5(): SupportSQLiteDatabase =
         helper.runMigrationsAndValidate(TEST_DB_NAME, 5, true, GitHubDatabase.MIGRATION_4_5)
+
+    private fun migrateTo6(): SupportSQLiteDatabase =
+        helper.runMigrationsAndValidate(TEST_DB_NAME, 6, true, GitHubDatabase.MIGRATION_5_6)
 
     private fun SupportSQLiteDatabase.insertRepo(id: Long, stars: Int = 100) = execSQL(
         "INSERT INTO `repos` (`id`, `name`, `description`, `url`, `stars`, `forks`, `language`) " +
@@ -205,6 +321,40 @@ class GitHubDatabaseMigrationTest {
         "INSERT INTO `repo_topic_cross_ref` (`id`, `topic`) VALUES (?, ?)",
         arrayOf<Any?>(repoId, topic)
     )
+
+    private fun SupportSQLiteDatabase.insertResult5(query: String, repoId: Long, position: Int) = execSQL(
+        "INSERT INTO `search_query_results` (`query`, `repo_id`, `position`) VALUES (?, ?, ?)",
+        arrayOf<Any?>(query, repoId, position)
+    )
+
+    private fun SupportSQLiteDatabase.insertKey5(
+        repoId: Long,
+        query: String,
+        prevKey: Int? = null,
+        nextKey: Int? = null
+    ) = execSQL(
+        "INSERT INTO `repo_remote_keys` (`repo_id`, `query`, `prev_key`, `next_key`) VALUES (?, ?, ?, ?)",
+        arrayOf<Any?>(repoId, query, prevKey, nextKey)
+    )
+
+    private fun SupportSQLiteDatabase.insertTopic5(repoId: Long, topic: String) = execSQL(
+        "INSERT INTO `repo_topic_cross_ref` (`repo_id`, `topic`) VALUES (?, ?)",
+        arrayOf<Any?>(repoId, topic)
+    )
+
+    private fun SupportSQLiteDatabase.insertSearchQuery5(query: String, accessedAt: Long) = execSQL(
+        "INSERT INTO `search_queries` (`query`, `accessed_at`) VALUES (?, ?)",
+        arrayOf<Any?>(query, accessedAt)
+    )
+
+    private fun SupportSQLiteDatabase.keysOf(queryText: String): Int =
+        query(
+            "SELECT COUNT(*) FROM `repo_remote_keys` WHERE `query` = ?",
+            arrayOf<Any?>(queryText)
+        ).use { cursor ->
+            check(cursor.moveToFirst()) { "the count query returned no row" }
+            cursor.getInt(0)
+        }
 
     private fun SupportSQLiteDatabase.count(table: String): Int =
         query("SELECT COUNT(*) FROM `$table`").use { cursor ->

@@ -37,6 +37,27 @@ internal class FakeRepository : Repository {
     var load: suspend (query: String, params: PagingSource.LoadParams<Int>) -> PagingSource.LoadResult<Int, Repo> =
         { _, _ -> page(REPOS) }
 
+    /**
+     * The bounded window of the pager. It is unbounded by default so a test that scrolls a few
+     * pages does not depend on the pages that are kept; a test of the window sets it explicitly.
+     */
+    var maxSize = PagingConfig.MAX_SIZE_UNBOUNDED
+
+    /** How many results one page has, [PAGE_SIZE] by default. */
+    var pageSize = PAGE_SIZE
+
+    /** How many results the initial load asks for, [PAGE_SIZE] by default. */
+    var initialLoadSize = PAGE_SIZE
+
+    /**
+     * The key a refresh starts from. Room starts it half an initial load before the anchor (see
+     * `LimitOffsetPagingSource`); a test that needs that behavior sets it explicitly.
+     */
+    var refreshKey: (PagingState<Int, Repo>) -> Int? = { null }
+
+    /** Invalidates the source once on the next refresh, like a database write of a mediator does. */
+    var invalidateOnNextRefresh = false
+
     /** What [getRepoTopics] answers, no topics by default. */
     var topics: suspend (repoId: Long) -> List<String> = { emptyList() }
 
@@ -51,8 +72,9 @@ internal class FakeRepository : Repository {
         queries += query
         return Pager(
             config = PagingConfig(
-                pageSize = PAGE_SIZE,
-                initialLoadSize = PAGE_SIZE,
+                pageSize = pageSize,
+                initialLoadSize = initialLoadSize,
+                maxSize = maxSize,
                 enablePlaceholders = false
             ),
             pagingSourceFactory = { Source(query) }
@@ -73,9 +95,13 @@ internal class FakeRepository : Repository {
 
         override suspend fun load(params: LoadParams<Int>): LoadResult<Int, Repo> {
             loads += params
+            if (invalidateOnNextRefresh && params is LoadParams.Refresh) {
+                invalidateOnNextRefresh = false
+                invalidate()
+            }
             return load(query.value, params).also { pagesServed++ }
         }
 
-        override fun getRefreshKey(state: PagingState<Int, Repo>): Int? = null
+        override fun getRefreshKey(state: PagingState<Int, Repo>): Int? = refreshKey(state)
     }
 }

@@ -23,6 +23,7 @@ import io.github.alxiw.wearpagingmediator.domain.GetRecentQueriesUseCase
 import io.github.alxiw.wearpagingmediator.domain.GetRepoTopicsUseCase
 import io.github.alxiw.wearpagingmediator.domain.GetReposFlowUseCase
 import io.github.alxiw.wearpagingmediator.domain.model.RecentQuery
+import io.github.alxiw.wearpagingmediator.domain.model.Repo
 import io.github.alxiw.wearpagingmediator.domain.model.SearchQuery
 import io.github.alxiw.wearpagingmediator.presentation.Constants.DEFAULT_QUERY
 import io.github.alxiw.wearpagingmediator.presentation.MainViewModel
@@ -32,6 +33,7 @@ import io.github.alxiw.wearpagingmediator.presentation.testing.BAND_CAPS
 import io.github.alxiw.wearpagingmediator.presentation.testing.FakeRepository
 import io.github.alxiw.wearpagingmediator.presentation.testing.FakeSearchResults
 import io.github.alxiw.wearpagingmediator.presentation.testing.FIRST_REPO
+import io.github.alxiw.wearpagingmediator.presentation.testing.PAGE_SIZE
 import io.github.alxiw.wearpagingmediator.presentation.testing.REPOS
 import io.github.alxiw.wearpagingmediator.presentation.testing.RecordingContext
 import io.github.alxiw.wearpagingmediator.presentation.testing.THIRD_REPO
@@ -47,6 +49,7 @@ import java.io.IOException
 import java.time.Instant
 import kotlinx.coroutines.CompletableDeferred
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -144,7 +147,7 @@ class MainScreenTest {
         }
 
         showScreen(repository = repository)
-        scrollTo(FIRST_REPO.name)
+        scrollTo(THIRD_REPO.name)
         awaitAppend()
 
         // the next page is on its way: the end of the list is not announced while it is loaded
@@ -218,7 +221,7 @@ class MainScreenTest {
         }
 
         showScreen(repository = repository)
-        scrollTo(FIRST_REPO.name)
+        scrollTo(THIRD_REPO.name)
         awaitAppend()
 
         scrollTo(label(R.string.error_append))
@@ -458,6 +461,56 @@ class MainScreenTest {
     }
 
     @Test
+    fun topicThatIsAlreadySearchedKeepsTheListWhereItWas() {
+        val repository = deepPagingRepository()
+
+        showScreen(repository = repository)
+        scrollTo("deep-repo-35")
+
+        rule.runOnUiThread {
+            viewModel.onIntent(MainIntent.TopicClicked(DEFAULT_QUERY.value))
+        }
+        rule.awaitCondition {
+            repository.loads.count { it is PagingSource.LoadParams.Refresh } == 2
+        }
+        rule.waitForIdle()
+
+        // the refreshed window begins before the anchor, but the list still shows the same result
+        rule.onNodeWithText("deep-repo-35").assertIsDisplayed()
+    }
+
+    @Test
+    fun topicThatIsAlreadySearchedKeepsTheContextWhenTheAnchoredRepoIsGone() {
+        var hiddenRepo: String? = null
+        val repository = deepPagingRepository(hiddenRepo = { hiddenRepo })
+
+        showScreen(repository = repository)
+        scrollTo("deep-repo-35")
+
+        // the refreshed page no longer serves the result the list was anchored on
+        hiddenRepo = "deep-repo-35"
+        repository.invalidateOnNextRefresh = true
+        rule.runOnUiThread {
+            viewModel.onIntent(MainIntent.TopicClicked(DEFAULT_QUERY.value))
+        }
+        rule.awaitCondition {
+            repository.loads.count { it is PagingSource.LoadParams.Refresh } >= 2
+        }
+        rule.awaitCondition {
+            rule.onAllNodes(hasText("deep-repo-35")).fetchSemanticsNodes().isEmpty()
+        }
+        rule.waitForIdle()
+
+        // a result next to the lost anchor keeps the list in the same part of the search
+        val visibleNeighbours = listOf("deep-repo-34", "deep-repo-36").sumOf { name ->
+            rule.onAllNodes(hasText(name)).fetchSemanticsNodes().size
+        }
+        assertTrue(visibleNeighbours > 0)
+        // the head of the refreshed window is not where the list was
+        assertEquals(0, rule.onAllNodes(hasText("deep-repo-21")).fetchSemanticsNodes().size)
+    }
+
+    @Test
     fun blankQueryIsIgnored() {
         val repository = FakeRepository()
 
@@ -523,7 +576,7 @@ class MainScreenTest {
     }
 
     @Test
-    fun visitedQueryKeepsItsResultsReady() {
+    fun visitedQueryIsNotRegisteredAgain() {
         showScreen()
         rule.awaitCondition { repository.queries.size == 1 }
 
@@ -532,6 +585,45 @@ class MainScreenTest {
         search("kotlin")
 
         assertEquals(1, repository.queries.count { it == query("kotlin") })
+    }
+
+    @Test
+    fun returningToAVisitedQueryStartsFromItsCachedHead() {
+        val deepRepos = (1..30).map { index ->
+            repo(id = 100L + index, name = "deep-repo-$index")
+        }
+        val kotlinRepo = repo(id = 500L, name = "kotlin-repo")
+
+        fun deepPage(pageIndex: Int): PagingSource.LoadResult<Int, Repo> {
+            val from = pageIndex * PAGE_SIZE
+            val items = deepRepos.drop(from).take(PAGE_SIZE)
+            val nextKey = if (from + PAGE_SIZE < deepRepos.size) pageIndex + 1 else null
+            return page(items, nextKey = nextKey, prevKey = if (pageIndex == 0) null else pageIndex - 1)
+        }
+
+        val repository = FakeRepository().apply {
+            maxSize = PAGE_SIZE * 6
+            load = { query, params ->
+                if (query == "kotlin") {
+                    page(listOf(kotlinRepo))
+                } else if (params is PagingSource.LoadParams.Append) {
+                    deepPage(params.key)
+                } else {
+                    deepPage(0)
+                }
+            }
+        }
+
+        showScreen(repository = repository)
+        // Scrolling this far drops the first page from the bounded window.
+        scrollTo("deep-repo-30")
+
+        search("kotlin")
+        search(DEFAULT_QUERY.value)
+
+        rule.awaitNode(hasText("deep-repo-1"))
+        rule.onNodeWithText("deep-repo-1").assertIsDisplayed()
+        assertEquals(1, repository.queries.count { it == DEFAULT_QUERY })
     }
 
     @Test
@@ -547,6 +639,43 @@ class MainScreenTest {
     }
 
     // endregion
+
+    /**
+     * A query with enough results for a refresh to start far from the head. Every result is in the
+     * same star band, so a separator cannot take the place of the result the list anchors on.
+     * [hiddenRepo] lets a test drop one result from the refreshed pages.
+     */
+    private fun deepPagingRepository(
+        hiddenRepo: () -> String? = { null }
+    ): FakeRepository {
+        val repos = (1..100).map { index ->
+            repo(id = 100L + index, name = "deep-repo-$index", stars = 1_000)
+        }
+        val pageSize = 30
+        return FakeRepository().apply {
+            this.pageSize = pageSize
+            initialLoadSize = pageSize
+            // the refresh of Room starts half an initial page before the anchor
+            refreshKey = { state ->
+                state.anchorPosition?.let { anchor ->
+                    maxOf(0, anchor - state.config.initialLoadSize / 2)
+                }
+            }
+            load = { _, params ->
+                val from = params.key ?: 0
+                val items = repos
+                    .drop(from)
+                    .take(params.loadSize)
+                    .filterNot { it.name == hiddenRepo() }
+                page(
+                    items = items,
+                    nextKey = (from + params.loadSize).takeIf { it < repos.size },
+                    // a refresh window has no page above it in these tests
+                    prevKey = from.takeIf { it > 0 && params !is PagingSource.LoadParams.Refresh }
+                )
+            }
+        }
+    }
 
     /** Shows the screen over the given data layer and search input. */
     private fun showScreen(

@@ -67,7 +67,8 @@ object DataModule {
                 GitHubDatabase.MIGRATION_1_2,
                 GitHubDatabase.MIGRATION_2_3,
                 GitHubDatabase.MIGRATION_3_4,
-                GitHubDatabase.MIGRATION_4_5
+                GitHubDatabase.MIGRATION_4_5,
+                GitHubDatabase.MIGRATION_5_6
             )
             .build()
     }

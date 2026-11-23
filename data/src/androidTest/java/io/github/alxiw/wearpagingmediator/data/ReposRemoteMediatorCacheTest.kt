@@ -64,6 +64,8 @@ class ReposRemoteMediatorCacheTest {
         assertEquals(2, database.reposDao().countSearchResults(QUERY_KOTLIN.value))
         assertEquals(2, database.reposDao().countRemoteKeys(QUERY_ANDROID.value))
         assertEquals(2, database.reposDao().countRemoteKeys(QUERY_KOTLIN.value))
+        assertEquals(listOf(0, 1), database.reposDao().positionsFor(QUERY_ANDROID.value))
+        assertEquals(listOf(0, 1), database.reposDao().positionsFor(QUERY_KOTLIN.value))
     }
 
     @Test
@@ -111,7 +113,7 @@ class ReposRemoteMediatorCacheTest {
     private fun pagingState() = PagingState<Int, RepoEntity>(
         pages = emptyList(),
         anchorPosition = null,
-        config = PagingConfig(pageSize = PAGE_SIZE, initialLoadSize = PAGE_SIZE * 3),
+        config = PagingConfig(pageSize = PAGE_SIZE, initialLoadSize = PAGE_SIZE),
         leadingPlaceholderCount = 0
     )
 

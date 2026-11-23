@@ -67,6 +67,27 @@ internal interface ReposDao {
     @Query("DELETE FROM search_query_results WHERE `query` IN (:queries)")
     suspend fun deleteResultsForQueries(queries: List<String>)
 
+    @Query("""
+        SELECT position FROM search_query_results
+        WHERE `query` = :query AND repo_id = :repoId
+    """)
+    suspend fun positionOf(query: String, repoId: Long): Int?
+
+    /** Replaces the results of one page without touching the cached head or tail. */
+    @Query("""
+        DELETE FROM search_query_results
+        WHERE `query` = :query AND position >= :start AND position < :endExclusive
+    """)
+    suspend fun deleteResultsForPositions(query: String, start: Int, endExclusive: Int)
+
+    /** Removes stale results after a smaller final page. */
+    @Query("DELETE FROM search_query_results WHERE `query` = :query AND position >= :position")
+    suspend fun deleteResultsFromPosition(query: String, position: Int)
+
+    /** Drops a repository from another page before it is inserted at its new position. */
+    @Query("DELETE FROM search_query_results WHERE `query` = :query AND repo_id IN (:repoIds)")
+    suspend fun deleteResultsForQueryAndRepoIds(query: String, repoIds: List<Long>)
+
     /**
      * Deletes repositories no cached query references anymore. Only rows without any reference are
      * removed: deleting a repository still referenced by another query would cascade into that

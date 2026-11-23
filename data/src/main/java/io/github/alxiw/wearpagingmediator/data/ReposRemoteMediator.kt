@@ -21,6 +21,10 @@ import io.github.alxiw.wearpagingmediator.domain.model.SearchQuery
  * a previous load as soon as the screen opens, while [load] refreshes them from the network. A page
  * is logged when GitHub is asked, so cached and fresh results can be told apart.
  *
+ * A page always has [ReposRepository.NETWORK_PAGE_SIZE] results, both in the request and in Room: a
+ * refresh replaces the slice around the anchor instead of clearing the cache, so the first result
+ * stays at position 0 and a later cold start still opens at the head.
+ *
  * [queryKey] is the canonical query, the only form the API and the cache see: the request and the
  * rows of one search cannot disagree on the case or the spacing of the query.
  */
@@ -36,10 +40,7 @@ internal class ReposRemoteMediator(
 
     override suspend fun load(loadType: LoadType, state: PagingState<Int, RepoEntity>): MediatorResult {
         val page = when (loadType) {
-            LoadType.REFRESH -> {
-                val remoteKey = getRemoteKeyClosestToCurrentPosition(state)
-                remoteKey?.nextKey?.minus(1) ?: STARTING_PAGE_INDEX
-            }
+            LoadType.REFRESH -> refreshPage(state)
             LoadType.PREPEND -> {
                 val remoteKey = getRemoteKeyForFirstItem(state)
                 val prevKey = remoteKey?.prevKey ?: return MediatorResult.Success(remoteKey != null)
@@ -56,52 +57,98 @@ internal class ReposRemoteMediator(
             Log.d("HELLO", "$queryKey: page $page is loaded from GitHub")
         }
 
+        val pageSize = state.config.pageSize
         // Remote keys cached before the search result limit was respected can point past the last
         // page GitHub serves, requesting it would fail with HTTP 422 instead of finishing the list.
-        if (isBeyondSearchResultLimit(page, state.config.pageSize)) {
+        if (isBeyondSearchResultLimit(page, pageSize)) {
             return MediatorResult.Success(endOfPaginationReached = true)
         }
 
         return runCatching {
-            val loadSize = if (loadType == LoadType.REFRESH) state.config.initialLoadSize else state.config.pageSize
             val repos = api.searchRepos(
                 query = queryKey,
                 page = page,
-                pageSize = loadSize
+                pageSize = pageSize
             )
-            val itemsLoaded = (page - 1) * state.config.pageSize + repos.items.size
-            val nextPage = page + (loadSize / state.config.pageSize)
+            val itemsLoaded = (page - 1) * pageSize + repos.items.size
+            val nextPage = page + 1
             val endOfPaginationReached = repos.items.isEmpty() ||
                 itemsLoaded >= repos.total ||
-                isBeyondSearchResultLimit(nextPage, state.config.pageSize)
+                isBeyondSearchResultLimit(nextPage, pageSize)
             insertIntoDatabase(
                 page = page,
-                loadSize = loadSize,
-                loadType = loadType,
+                pageSize = pageSize,
                 repoResponses = repos.items,
-                endOfPaginationReached = endOfPaginationReached,
-                state = state
+                endOfPaginationReached = endOfPaginationReached
             )
             MediatorResult.Success(endOfPaginationReached)
         }.getOrElse { throwable -> MediatorResult.Error(throwable) }
     }
 
+    /**
+     * The first page after a refresh is the page that holds the anchor, not the page that happens
+     * to follow its remote key. The key is taken from the same in-memory page that the anchor
+     * belongs to; when that page is replaced while it is being refreshed, the next closest page
+     * can belong to another search page and replay the wrong window.
+     *
+     * The anchor is found in Room instead: its stored position is the offset the PagingSource used,
+     * so the same result keeps its place before and after the network page is merged into the
+     * cache. A cache without the anchor (an old one, or a result that was dropped) starts from the
+     * first page, which also gives the cache the head it needs for a cold start.
+     */
+    private suspend fun refreshPage(state: PagingState<Int, RepoEntity>): Int {
+        val repoId = state.anchorPosition
+            ?.let { position -> state.closestItemToPosition(position)?.id }
+            ?: return STARTING_PAGE_INDEX
+        val position = database.reposDao().positionOf(queryKey, repoId)
+            ?: return STARTING_PAGE_INDEX
+        return position / state.config.pageSize + STARTING_PAGE_INDEX
+    }
+
     private suspend fun insertIntoDatabase(
         page: Int,
-        loadSize: Int,
-        loadType: LoadType,
+        pageSize: Int,
         repoResponses: List<RepoResponse>,
-        endOfPaginationReached: Boolean,
-        state: PagingState<Int, RepoEntity>
+        endOfPaginationReached: Boolean
     ) {
         val repos = repoResponses.map { RepoResponseMapper.toRepoEntity(it) }
+        val startPosition = (page - 1) * pageSize
+        val endExclusive = startPosition + pageSize
+        val searchResults = repos.mapIndexed { index, repo ->
+            SearchQueryResultEntity(
+                query = queryKey,
+                repoId = repo.id,
+                position = startPosition + index
+            )
+        }
+        val repoIds = repos.map { it.id }
+
         database.withTransaction {
-            if (loadType == LoadType.REFRESH) {
-                database.remoteKeysDao().clearRemoteKeys(queryKey)
-                database.reposDao().deleteResultsForQuery(queryKey)
+            // A page replaces exactly its own slice: the cached head and the following pages stay
+            // where they are, so an anchor in the middle of the list is still valid after a
+            // refresh. A shorter final page also drops the results that are no longer served.
+            val endOfResults = if (endOfPaginationReached) startPosition + searchResults.size else null
+
+            database.remoteKeysDao().deleteForPositions(queryKey, startPosition, endExclusive)
+            if (endOfResults != null) {
+                database.remoteKeysDao().deleteFromPosition(queryKey, endOfResults)
             }
+            database.reposDao().deleteResultsForPositions(queryKey, startPosition, endExclusive)
+            if (endOfResults != null) {
+                database.reposDao().deleteResultsFromPosition(queryKey, endOfResults)
+            }
+
+            // A repo can move from one page to another when results are inserted or removed on
+            // GitHub: drop its old result and key before it is written at its new position.
+            if (repoIds.isNotEmpty()) {
+                database.remoteKeysDao().deleteForRepoIds(queryKey, repoIds)
+                database.reposDao().deleteResultsForQueryAndRepoIds(queryKey, repoIds)
+            }
+
+            database.reposDao().upsertAll(repos)
+
             val prevKey = if (page == STARTING_PAGE_INDEX) null else page - 1
-            val nextKey = if (endOfPaginationReached) null else page + (loadSize / state.config.pageSize)
+            val nextKey = if (endOfPaginationReached) null else page + 1
             val keys = repos.map {
                 RepoRemoteKeyEntity(
                     repoId = it.id,
@@ -111,22 +158,11 @@ internal class ReposRemoteMediator(
                 )
             }
             database.remoteKeysDao().insertAll(keys)
-            database.reposDao().upsertAll(repos)
-
-            val startPosition = (page - 1) * state.config.pageSize
-            val searchResults = repos.mapIndexed { index, repo ->
-                SearchQueryResultEntity(
-                    query = queryKey,
-                    repoId = repo.id,
-                    position = startPosition + index
-                )
-            }
             database.reposDao().insertSearchResults(searchResults)
 
             val crossRefs = repoResponses.flatMap { response ->
                 response.topics.map { topic -> RepoTopicCrossRef(repoId = response.id, topic = topic) }
             }
-            val repoIds = repos.map { it.id }
             // the response holds the whole topic list of these repos, not only the new links
             if (repoIds.isNotEmpty()) database.reposDao().deleteRepoTopics(repoIds)
             database.reposDao().insertRepoTopics(crossRefs)
@@ -145,16 +181,6 @@ internal class ReposRemoteMediator(
             .firstOrNull { it.data.isNotEmpty() }
             ?.data?.firstOrNull()
             ?.let { repo -> database.remoteKeysDao().remoteKeysRepoId(repo.id, queryKey) }
-    }
-
-    private suspend fun getRemoteKeyClosestToCurrentPosition(
-        state: PagingState<Int, RepoEntity>
-    ): RepoRemoteKeyEntity? {
-        return state.anchorPosition?.let { position ->
-            state.closestItemToPosition(position)?.id?.let { repoId ->
-                database.remoteKeysDao().remoteKeysRepoId(repoId, queryKey)
-            }
-        }
     }
 
     /**
