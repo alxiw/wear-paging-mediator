@@ -7,7 +7,11 @@ plugins {
 
 android {
     namespace = "io.github.alxiw.wearpagingmediator.presentation"
-    compileSdk = 37
+    compileSdk {
+        version = release(37) {
+            minorApiLevel = 2
+        }
+    }
 
     defaultConfig {
         minSdk = 30

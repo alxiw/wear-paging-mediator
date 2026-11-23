@@ -49,15 +49,15 @@ The project follows **Clean Architecture** across four Gradle modules with unidi
 
 * Android Studio (a version that supports required AGP)
 * JDK 17 or newer
-* [Android Gradle Plugin](https://developer.android.com/build/releases/about-agp) 9.5.1
-* [Gradle](https://github.com/gradle/gradle) 9.9.1 (via `./gradlew`)
-* `minSdk` 30 (Wear OS 3+), `targetSdk` 37
+* [Android Gradle Plugin](https://developer.android.com/build/releases/about-agp) 9.5.2
+* [Gradle](https://github.com/gradle/gradle) 9.9.2 (via `./gradlew`)
+* `minSdk` 30 (Wear OS 3+), `compileSdk` 37.2, `targetSdk` 37
 
 ## Dependencies
 
 * [Kotlin](https://github.com/JetBrains/kotlin) 2.4.21 with [KSP](https://github.com/google/ksp) 2.3.14
-* [Jetpack Compose for Wear OS](https://developer.android.com/jetpack/androidx/releases/wear-compose) (Material 3 + Foundation) 1.7.1
-* [Jetpack Compose](https://developer.android.com/jetpack/compose/bom) (BOM) 2026.09.00
+* [Jetpack Compose for Wear OS](https://developer.android.com/jetpack/androidx/releases/wear-compose) (Material 3 + Foundation) 1.7.2
+* [Jetpack Compose](https://developer.android.com/jetpack/compose/bom) (BOM) 2026.11.01
 * [Hilt](https://github.com/google/dagger) 2.60.1
 * [Coroutines](https://github.com/Kotlin/kotlinx.coroutines) 1.11.0
 * [Paging](https://developer.android.com/topic/libraries/architecture/paging/v3-overview) 3.5.3

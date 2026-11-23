@@ -16,7 +16,9 @@ if (localPropertiesFile.exists()) {
 android {
     namespace = "io.github.alxiw.wearpagingmediator"
     compileSdk {
-        version = release(37)
+        version = release(37) {
+            minorApiLevel = 2
+        }
     }
 
     defaultConfig {
